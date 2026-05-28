@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ZenMac - MacBook M1 hardware health, memory hygiene, and developer cache management dashboard. Optimize performance for coding, streaming, and cloud storage.">
+  <title>ZenMac // M1 Hygiene & Performance Dashboard</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="glow-container">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+  </div>
+
+  <header class="app-header">
+    <div class="logo-area">
+      <div class="logo-icon"></div>
+      <div>
+        <h1 id="app-title">ZenMac</h1>
+        <p class="subtitle">M1 Hygiene & System Control</p>
+      </div>
+    </div>
+    <div class="preset-indicator" id="current-preset-badge">
+      <span class="pulse-dot"></span>
+      <span id="active-preset-text">Syncing Active</span>
+    </div>
+  </header>
+
+  <main class="dashboard-grid">
+    <!-- Row 1: Focus Presets & Health Alert -->
+    <section class="card span-full focus-presets-card">
+      <div class="card-header">
+        <h2>Focus Presets</h2>
+        <p class="card-desc">Toggle system states to preserve memory, CPU cycles, and battery life.</p>
+      </div>
+      <div class="preset-buttons">
+        <button id="preset-coding" class="preset-btn" onclick="setPreset('coding')">
+          <div class="btn-icon">⚡️</div>
+          <div class="btn-text">
+            <h3>Zen Coding Mode</h3>
+            <p>Suspends Drive & OneDrive. Save RAM/CPU.</p>
+          </div>
+        </button>
+        <button id="preset-cinema" class="preset-btn" onclick="setPreset('cinema')">
+          <div class="btn-icon">🎬</div>
+          <div class="btn-text">
+            <h3>Cinema Mode</h3>
+            <p>Silence sync agents. Maximize streaming power.</p>
+          </div>
+        </button>
+        <button id="preset-sync" class="preset-btn active" onclick="setPreset('sync')">
+          <div class="btn-icon">🔄</div>
+          <div class="btn-text">
+            <h3>Sync & Idle</h3>
+            <p>Launch Drive & OneDrive. Resume backups.</p>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Row 2: Performance Gauges -->
+    <section class="card meter-card" id="cpu-card">
+      <div class="card-header">
+        <h3>CPU Usage</h3>
+        <span class="value-highlight" id="cpu-total-val">0%</span>
+      </div>
+      <div class="gauge-container">
+        <div class="gauge-bg">
+          <div class="gauge-fill" id="cpu-gauge-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+      <div class="load-averages">
+        <div>Load 1m: <span id="load-1m">0.00</span></div>
+        <div>Load 5m: <span id="load-5m">0.00</span></div>
+        <div>Load 15m: <span id="load-15m">0.00</span></div>
+      </div>
+      <canvas id="cpu-chart" class="history-chart" width="300" height="80"></canvas>
+    </section>
+
+    <section class="card meter-card" id="ram-card">
+      <div class="card-header">
+        <h3>RAM Usage</h3>
+        <span class="value-highlight" id="ram-pct-val">0%</span>
+      </div>
+      <div class="gauge-container">
+        <div class="gauge-bg">
+          <div class="gauge-fill" id="ram-gauge-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+      <div class="ram-breakdown">
+        <div>Wired: <span id="ram-wired">0.0 GB</span></div>
+        <div>Compressed: <span id="ram-compressed">0.0 GB</span></div>
+        <div>Free: <span id="ram-free">0.0 GB</span></div>
+      </div>
+      <canvas id="ram-chart" class="history-chart" width="300" height="80"></canvas>
+    </section>
+
+    <section class="card meter-card" id="swap-card">
+      <div class="card-header">
+        <h3>Swap Memory</h3>
+        <span class="value-highlight" id="swap-val">0.0 GB</span>
+      </div>
+      <div class="gauge-container">
+        <div class="gauge-bg">
+          <div class="gauge-fill" id="swap-gauge-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+      <p class="warning-text" id="swap-warning" style="display: none;">⚠️ High Swap usage contributes to SSD wear.</p>
+      <canvas id="swap-chart" class="history-chart" width="300" height="80"></canvas>
+    </section>
+
+    <!-- Row 3: Disk Space & Battery Health -->
+    <section class="card" id="disk-card">
+      <div class="card-header">
+        <h2>Disk Storage</h2>
+        <span class="value-highlight warning" id="disk-pct-val">98%</span>
+      </div>
+      <div class="disk-progress-bar">
+        <div class="disk-progress-fill warning" id="disk-progress-fill" style="width: 98%;"></div>
+      </div>
+      <div class="disk-details">
+        <div>Used: <span id="disk-used">413 GB</span></div>
+        <div>Available: <span id="disk-free" class="critical-text">8.8 GB</span></div>
+        <div>Total: <span id="disk-total">460 GB</span></div>
+      </div>
+      <div class="alert-box critical" id="disk-alert-box">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-content">
+          <h4>Storage Critical</h4>
+          <p>Disk is 98% full. M1 swap operations and write cycles are severely constrained. Performance will drop. Clean cache now!</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="battery-card">
+      <div class="card-header">
+        <h2>Battery Health</h2>
+        <span class="value-highlight" id="battery-pct-val">80%</span>
+      </div>
+      <div class="battery-status-grid">
+        <div class="battery-metric">
+          <div class="metric-label">Condition</div>
+          <div class="metric-value" id="battery-condition">Normal</div>
+        </div>
+        <div class="battery-metric">
+          <div class="metric-label">Max Capacity</div>
+          <div class="metric-value" id="battery-capacity">86%</div>
+        </div>
+        <div class="battery-metric">
+          <div class="metric-label">Cycle Count</div>
+          <div class="metric-value" id="battery-cycles">161</div>
+        </div>
+        <div class="battery-metric">
+          <div class="metric-label">Status</div>
+          <div class="metric-value" id="battery-charging-status">Plugged In</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 4: Developer Cache Cleaner -->
+    <section class="card span-full" id="cleaner-card">
+      <div class="card-header-actions">
+        <div>
+          <h2>Developer Cache Cleaner</h2>
+          <p class="card-desc">Safely clear temporary compilation data and packages to reclaim precious storage space.</p>
+        </div>
+        <button id="btn-scan" class="btn primary" onclick="scanCaches()">Scan Caches</button>
+      </div>
+
+      <div class="cache-list-container">
+        <table class="cache-table" id="cache-table">
+          <thead>
+            <tr>
+              <th width="40"><input type="checkbox" id="select-all-caches" onchange="toggleSelectAllCaches(this)"></th>
+              <th>Cache Name</th>
+              <th>Path</th>
+              <th align="right">Size</th>
+            </tr>
+          </thead>
+          <tbody id="cache-list-body">
+            <tr>
+              <td colspan="4" align="center" class="muted-text">Click "Scan Caches" to analyze storage space...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cleaner-actions" style="display: none;" id="cleaner-actions-bar">
+        <div class="selected-summary" id="selected-cache-summary">Selected: 0 B</div>
+        <button id="btn-clean" class="btn danger" onclick="runCleanup()">Clean Selected Caches</button>
+      </div>
+    </section>
+
+    <!-- Row 5: Process Hygiene Inspector -->
+    <section class="card span-full" id="process-card">
+      <div class="card-header">
+        <h2>Process Hygiene Inspector</h2>
+        <p class="card-desc">Audit running software and target high-resource consumers.</p>
+      </div>
+
+      <!-- Categories Summary -->
+      <div class="category-breakdowns">
+        <div class="category-card">
+          <div class="cat-title">Cloud Storage Sync</div>
+          <div class="cat-stats">
+            <div>CPU: <span id="cat-sync-cpu" class="bold">0%</span></div>
+            <div>RAM: <span id="cat-sync-mem" class="bold">0%</span></div>
+          </div>
+        </div>
+        <div class="category-card">
+          <div class="cat-title">Browsers & Streaming</div>
+          <div class="cat-stats">
+            <div>CPU: <span id="cat-browser-cpu" class="bold">0%</span></div>
+            <div>RAM: <span id="cat-browser-mem" class="bold">0%</span></div>
+          </div>
+        </div>
+        <div class="category-card">
+          <div class="cat-title">IDEs & Developer Tools</div>
+          <div class="cat-stats">
+            <div>CPU: <span id="cat-dev-cpu" class="bold">0%</span></div>
+            <div>RAM: <span id="cat-dev-mem" class="bold">0%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toggle CPU/MEM view -->
+      <div class="tab-header">
+        <button id="tab-cpu" class="tab-btn active" onclick="switchProcessTab('cpu')">Sort by CPU Usage</button>
+        <button id="tab-mem" class="tab-btn" onclick="switchProcessTab('mem')">Sort by Memory Usage</button>
+      </div>
+
+      <div class="process-table-container">
+        <table class="process-table" id="process-table">
+          <thead>
+            <tr>
+              <th>PID</th>
+              <th>Process Name</th>
+              <th align="right">CPU</th>
+              <th align="right">RAM</th>
+              <th width="100" align="center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="process-list-body">
+            <tr>
+              <td colspan="5" align="center" class="muted-text">Gathering process statistics...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>ZenMac M1 Hygiene dashboard. Locally hosted tool. Preserves memory, SSD lifetime, and CPU health.</p>
+  </footer>
+
+  <!-- Process Info Dialog -->
+  <dialog id="process-info-dialog" class="dialog-card" closedby="any" aria-labelledby="info-proc-name">
+    <div class="dialog-header">
+      <h2 id="info-proc-name">Process Name</h2>
+      <button class="btn-close-dialog" onclick="closeProcessInfo()">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="info-group">
+        <div class="info-label">Process Category</div>
+        <div class="info-value" id="info-proc-risk">System Daemon</div>
+      </div>
+      <div class="info-group">
+        <div class="info-label">Usage on M1 Mac</div>
+        <p class="info-desc" id="info-proc-desc">Detailed explanation of what this process is used for on the M1 Mac.</p>
+      </div>
+      
+      <!-- Safeness Score -->
+      <div class="safeness-section">
+        <div class="safeness-label">Termination Safeness</div>
+        <div class="safeness-flex">
+          <div class="safeness-gauge-container">
+            <svg class="safeness-ring" width="80" height="80">
+              <circle class="ring-bg" cx="40" cy="40" r="34"></circle>
+              <circle class="ring-fill" id="info-safeness-ring" cx="40" cy="40" r="34" stroke-dasharray="213.6" stroke-dashoffset="213.6"></circle>
+            </svg>
+            <div class="safeness-text-overlay" id="info-safeness-pct">0%</div>
+          </div>
+          <div class="safeness-assessment" id="info-safeness-desc">
+            Extremely dangerous to close. May crash system.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button id="btn-dialog-terminate" class="btn danger" onclick="terminateFromDialog()">Terminate Process</button>
+      <button class="btn secondary" onclick="closeProcessInfo()">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
