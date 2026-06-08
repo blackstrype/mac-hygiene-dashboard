@@ -42,21 +42,21 @@
         <p class="card-desc">Toggle system states to preserve memory, CPU cycles, and battery life.</p>
       </div>
       <div class="preset-buttons">
-        <button id="preset-coding" class="preset-btn" onclick="setPreset('coding')">
+        <button id="preset-coding" class="preset-btn">
           <div class="btn-icon">⚡️</div>
           <div class="btn-text">
             <h3>Zen Coding Mode</h3>
             <p>Suspends Drive & OneDrive. Save RAM/CPU.</p>
           </div>
         </button>
-        <button id="preset-cinema" class="preset-btn" onclick="setPreset('cinema')">
+        <button id="preset-cinema" class="preset-btn">
           <div class="btn-icon">🎬</div>
           <div class="btn-text">
             <h3>Cinema Mode</h3>
             <p>Silence sync agents. Maximize streaming power.</p>
           </div>
         </button>
-        <button id="preset-sync" class="preset-btn active" onclick="setPreset('sync')">
+        <button id="preset-sync" class="preset-btn active">
           <div class="btn-icon">🔄</div>
           <div class="btn-text">
             <h3>Sync & Idle</h3>
@@ -174,14 +174,14 @@
           <h2>Developer Cache Cleaner</h2>
           <p class="card-desc">Safely clear temporary compilation data and packages to reclaim precious storage space.</p>
         </div>
-        <button id="btn-scan" class="btn primary" onclick="scanCaches()">Scan Caches</button>
+        <button id="btn-scan" class="btn primary">Scan Caches</button>
       </div>
 
       <div class="cache-list-container">
         <table class="cache-table" id="cache-table">
           <thead>
             <tr>
-              <th width="40"><input type="checkbox" id="select-all-caches" onchange="toggleSelectAllCaches(this)"></th>
+              <th width="40"><input type="checkbox" id="select-all-caches"></th>
               <th>Cache Name</th>
               <th>Path</th>
               <th align="right">Size</th>
@@ -197,7 +197,7 @@
 
       <div class="cleaner-actions" style="display: none;" id="cleaner-actions-bar">
         <div class="selected-summary" id="selected-cache-summary">Selected: 0 B</div>
-        <button id="btn-clean" class="btn danger" onclick="runCleanup()">Clean Selected Caches</button>
+        <button id="btn-clean" class="btn danger">Clean Selected Caches</button>
       </div>
     </section>
 
@@ -238,8 +238,8 @@
         <div class="process-left-panel">
           <!-- Toggle CPU/MEM view -->
           <div class="tab-header">
-            <button id="tab-cpu" class="tab-btn active" onclick="switchProcessTab('cpu')">Sort by CPU Usage</button>
-            <button id="tab-mem" class="tab-btn" onclick="switchProcessTab('mem')">Sort by Memory Usage</button>
+            <button id="tab-cpu" class="tab-btn active">Sort by CPU Usage</button>
+            <button id="tab-mem" class="tab-btn">Sort by Memory Usage</button>
           </div>
 
           <div class="process-table-container">
@@ -283,7 +283,7 @@
   <dialog id="process-info-dialog" class="dialog-card" closedby="any" aria-labelledby="info-proc-name">
     <div class="dialog-header">
       <h2 id="info-proc-name">Process Name</h2>
-      <button class="btn-close-dialog" onclick="closeProcessInfo()">×</button>
+      <button class="btn-close-dialog">×</button>
     </div>
     <div class="dialog-body">
       <div class="info-group">
@@ -313,12 +313,12 @@
       </div>
     </div>
     <div class="dialog-footer">
-      <button id="btn-dialog-terminate" class="btn danger" onclick="terminateFromDialog()">Terminate Process</button>
-      <button class="btn secondary" onclick="closeProcessInfo()">Close</button>
+      <button id="btn-dialog-terminate" class="btn danger">Terminate Process</button>
+      <button class="btn secondary btn-close-dialog-sec">Close</button>
     </div>
   </dialog>
 
   <!-- Scripts -->
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

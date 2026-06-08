@@ -1,188 +1,6 @@
-// Custom Lightweight Canvas Chart Class
-class MiniChart {
-  constructor(canvasId, maxPoints = 30, color = '#6366f1', type = 'percent') {
-    this.canvas = document.getElementById(canvasId);
-    if (!this.canvas) return;
-    this.ctx = this.canvas.getContext('2d');
-    this.maxPoints = maxPoints;
-    this.color = color;
-    this.type = type; // 'percent', 'ram', 'swap'
-    this.data = Array(maxPoints).fill(0);
-    this.totalRamGB = 16.0; // default, updated dynamically
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-  }
-
-  resize() {
-    if (!this.canvas) return;
-    const rect = this.canvas.getBoundingClientRect();
-    this.canvas.width = rect.width * window.devicePixelRatio;
-    this.canvas.height = rect.height * window.devicePixelRatio;
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    this.draw();
-  }
-
-  addData(val) {
-    this.data.push(val);
-    if (this.data.length > this.maxPoints) {
-      this.data.shift();
-    }
-    this.draw();
-  }
-
-  draw() {
-    if (!this.ctx || !this.canvas) return;
-    const ctx = this.ctx;
-    const rect = this.canvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
-
-    ctx.clearRect(0, 0, w, h);
-
-    // Subtle horizontal gridlines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-    ctx.lineWidth = 1;
-    for (let y = h / 4; y < h; y += h / 4) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(w, y);
-      ctx.stroke();
-    }
-
-    const maxVal = Math.max(...this.data, 10);
-    const points = this.data.map((val, idx) => {
-      const x = (idx / (this.maxPoints - 1)) * w;
-      // Leave small margin top/bottom
-      const y = h - (val / maxVal) * (h - 10) - 5;
-      return { x, y };
-    });
-
-    // Draw gradient area
-    ctx.beginPath();
-    ctx.moveTo(0, h);
-    points.forEach(p => ctx.lineTo(p.x, p.y));
-    ctx.lineTo(w, h);
-    ctx.closePath();
-
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, this.color + '33'); // 20% opacity
-    grad.addColorStop(1, this.color + '00'); // 0% opacity
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // Draw line
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i].x, points[i].y);
-    }
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Draw Y-axis watermark labels on the right
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.font = '9px monospace';
-    ctx.textAlign = 'right';
-    
-    let topLabel = '';
-    let bottomLabel = '0';
-    
-    if (this.type === 'percent') {
-      topLabel = '100%';
-      bottomLabel = '0%';
-    } else if (this.type === 'ram') {
-      topLabel = `${this.totalRamGB.toFixed(0)} GB`;
-      bottomLabel = '0 GB';
-    } else if (this.type === 'swap') {
-      topLabel = `${maxVal.toFixed(1)} GB`;
-      bottomLabel = '0 GB';
-    }
-    
-    ctx.fillText(topLabel, w - 8, 12);
-    ctx.fillText(bottomLabel, w - 8, h - 6);
-  }
-}
-
-// Custom Lightweight Donut/Pie Chart Class
-class PieChart {
-  constructor(canvasId) {
-    this.canvas = document.getElementById(canvasId);
-    if (!this.canvas) return;
-    this.ctx = this.canvas.getContext('2d');
-    this.data = [];
-    this.colors = [
-      '#ef4444', // Core (Red)
-      '#f59e0b', // Browser (Orange/Yellow)
-      '#6366f1', // IDE & Dev (Indigo)
-      '#10b981', // Cloud Storage (Green)
-      '#8b5cf6', // Other Apps (Violet)
-      '#06b6d4', // Cached (Cyan)
-      '#8a92b2'  // Free (Muted Blue)
-    ];
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-  }
-
-  resize() {
-    if (!this.canvas) return;
-    const rect = this.canvas.getBoundingClientRect();
-    this.canvas.width = rect.width * window.devicePixelRatio;
-    this.canvas.height = rect.height * window.devicePixelRatio;
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    this.draw();
-  }
-
-  updateData(newData) {
-    this.data = newData;
-    this.draw();
-  }
-
-  draw() {
-    if (!this.ctx || !this.canvas || !this.data || this.data.length === 0) return;
-    const ctx = this.ctx;
-    const rect = this.canvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
-    
-    ctx.clearRect(0, 0, w, h);
-    
-    const cx = w / 2;
-    const cy = h / 2;
-    const radius = Math.min(cx, cy) - 5;
-    
-    const total = this.data.reduce((sum, d) => sum + d.val, 0);
-    if (total === 0) return;
-    
-    let startAngle = -Math.PI / 2; // Start at 12 o'clock
-    
-    this.data.forEach((slice, idx) => {
-      const sliceAngle = (slice.val / total) * 2 * Math.PI;
-      
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
-      ctx.closePath();
-      
-      ctx.fillStyle = this.colors[idx % this.colors.length];
-      ctx.fill();
-      
-      // Separator stroke
-      ctx.strokeStyle = '#161825'; // matches card background
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      
-      startAngle += sliceAngle;
-    });
-
-    // Donut hole
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius * 0.55, 0, 2 * Math.PI);
-    ctx.closePath();
-    ctx.fillStyle = '#161825'; // matches background
-    ctx.fill();
-  }
-}
+import MiniChart from './js/components/MiniChart.js';
+import PieChart from './js/components/PieChart.js';
+import { formatBytes, formatGB, escapeHtml } from './js/utils/helpers.js';
 
 // Global UI State
 let activePreset = 'sync';
@@ -197,21 +15,6 @@ const cpuChart = new MiniChart('cpu-chart', 30, '#6366f1', 'percent');
 const ramChart = new MiniChart('ram-chart', 30, '#8b5cf6', 'ram');
 const swapChart = new MiniChart('swap-chart', 30, '#ec4899', 'swap');
 const ramPieChart = new PieChart('ram-pie-chart');
-
-// Format Helper: Bytes to Human Readable
-function formatBytes(bytes, decimals = 2) {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
-
-// Format Helper: Gigabytes (used for memory stats)
-function formatGB(bytes) {
-  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-}
 
 // Fetch System Stats
 async function fetchStats() {
@@ -316,7 +119,8 @@ async function fetchPresetStatus() {
       badge.style.color = 'var(--color-success)';
       badge.style.background = 'rgba(16, 185, 129, 0.1)';
       badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-      document.getElementById('preset-sync').classList.add('active');
+      const btn = document.getElementById('preset-sync');
+      if (btn) btn.classList.add('active');
     } else {
       // Both are stopped (or not installed)
       activePreset = 'coding';
@@ -324,7 +128,8 @@ async function fetchPresetStatus() {
       badge.style.color = 'var(--accent-primary)';
       badge.style.background = 'rgba(99, 102, 241, 0.1)';
       badge.style.borderColor = 'var(--border-color-active)';
-      document.getElementById('preset-coding').classList.add('active');
+      const btn = document.getElementById('preset-coding');
+      if (btn) btn.classList.add('active');
     }
   } catch (error) {
     console.error('Error checking preset status:', error);
@@ -336,7 +141,8 @@ async function setPreset(preset) {
   try {
     // Optimistic UI change
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`preset-${preset}`).classList.add('active');
+    const btn = document.getElementById(`preset-${preset}`);
+    if (btn) btn.classList.add('active');
 
     const res = await fetch('/api/focus/preset', {
       method: 'POST',
@@ -393,12 +199,12 @@ function renderProcessList() {
         <td>${p.pid}</td>
         <td class="proc-name" title="${escapedComm}">
           ${escapedName}
-          <button class="info-bubble" data-name="${escapedName}" data-comm="${escapedComm}" data-pid="${p.pid}" onclick="handleInfoClick(this)" title="Process Info">ⓘ</button>
+          <button class="info-bubble" data-name="${escapedName}" data-comm="${escapedComm}" data-pid="${p.pid}" title="Process Info">ⓘ</button>
         </td>
         <td align="right" class="${p.cpu > 50 ? 'critical-text' : ''}">${p.cpu.toFixed(1)}%</td>
         <td align="right">${p.mem.toFixed(1)}%</td>
         <td align="center">
-          <button class="btn-kill" onclick="killProcess(${p.pid})">Terminate</button>
+          <button class="btn-kill" data-pid="${p.pid}">Terminate</button>
         </td>
       </tr>
     `;
@@ -457,7 +263,7 @@ async function scanCaches() {
         <tr>
           <td>
             <input type="checkbox" class="cache-checkbox" data-key="${key}" ${isChecked} 
-              ${cache.size === 0 ? 'disabled' : ''} onchange="onCacheCheckboxChange(this)">
+              ${cache.size === 0 ? 'disabled' : ''}>
           </td>
           <td><strong>${displayName}</strong> ${statusText}</td>
           <td class="path-text">${cache.path}</td>
@@ -560,36 +366,8 @@ async function runCleanup() {
   }
 }
 
-// Initialize Polling
-async function init() {
-  await fetchStats();
-  await fetchPresetStatus();
-  await fetchProcesses();
-  
-  // Scan caches automatically on load
-  await scanCaches();
-
-  // Setup loop
-  setInterval(fetchStats, 3000);
-  setInterval(fetchProcesses, 4000);
-  setInterval(fetchPresetStatus, 8000);
-}
-
-// Start
-window.onload = init;
-
 // Dialog / Information Modal Logic
 let dialogTargetPid = null;
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 async function handleInfoClick(btn) {
   const name = btn.getAttribute('data-name');
@@ -728,13 +506,6 @@ if (infoDialog && !('closedBy' in HTMLDialogElement.prototype)) {
   });
 }
 
-// Expose functions globally so HTML onclick handlers can access them
-window.escapeHtml = escapeHtml;
-window.handleInfoClick = handleInfoClick;
-window.showProcessInfo = showProcessInfo;
-window.closeProcessInfo = closeProcessInfo;
-window.terminateFromDialog = terminateFromDialog;
-
 // Update memory allocation donut chart
 function updatePieChart() {
   if (!latestStats || !processData || !processData.categories) return;
@@ -786,6 +557,60 @@ function updatePieChart() {
   }
 }
 
-// Expose PieChart class to window
-window.PieChart = PieChart;
-window.updatePieChart = updatePieChart;
+// Initialize Polling & Bind Dynamic Events
+async function init() {
+  // Static event bindings
+  document.getElementById('preset-coding').addEventListener('click', () => setPreset('coding'));
+  document.getElementById('preset-cinema').addEventListener('click', () => setPreset('cinema'));
+  document.getElementById('preset-sync').addEventListener('click', () => setPreset('sync'));
+  
+  document.getElementById('btn-scan').addEventListener('click', scanCaches);
+  document.getElementById('btn-clean').addEventListener('click', runCleanup);
+  
+  document.getElementById('select-all-caches').addEventListener('change', (e) => toggleSelectAllCaches(e.target));
+  
+  document.getElementById('tab-cpu').addEventListener('click', () => switchProcessTab('cpu'));
+  document.getElementById('tab-mem').addEventListener('click', () => switchProcessTab('mem'));
+  
+  // Dialog bindings
+  document.querySelectorAll('.btn-close-dialog').forEach(btn => btn.addEventListener('click', closeProcessInfo));
+  document.querySelector('.btn-close-dialog-sec').addEventListener('click', closeProcessInfo);
+  document.getElementById('btn-dialog-terminate').addEventListener('click', terminateFromDialog);
+  
+  // Event Delegation for cache list body (checkboxes)
+  document.getElementById('cache-list-body').addEventListener('change', (e) => {
+    const cb = e.target.closest('.cache-checkbox');
+    if (cb) {
+      onCacheCheckboxChange(cb);
+    }
+  });
+  
+  // Event Delegation for process list body (terminate & info buttons)
+  document.getElementById('process-list-body').addEventListener('click', (e) => {
+    const killBtn = e.target.closest('.btn-kill');
+    if (killBtn) {
+      const pid = parseInt(killBtn.getAttribute('data-pid'), 10);
+      killProcess(pid);
+    }
+    
+    const infoBtn = e.target.closest('.info-bubble');
+    if (infoBtn) {
+      handleInfoClick(infoBtn);
+    }
+  });
+
+  await fetchStats();
+  await fetchPresetStatus();
+  await fetchProcesses();
+  
+  // Scan caches automatically on load
+  await scanCaches();
+
+  // Setup loop
+  setInterval(fetchStats, 3000);
+  setInterval(fetchProcesses, 4000);
+  setInterval(fetchPresetStatus, 8000);
+}
+
+// Start
+window.onload = init;
