@@ -96,8 +96,10 @@
         </div>
       </div>
       <div class="ram-breakdown">
+        <div>App Memory: <span id="ram-active">0.0 GB</span></div>
         <div>Wired: <span id="ram-wired">0.0 GB</span></div>
         <div>Compressed: <span id="ram-compressed">0.0 GB</span></div>
+        <div>Cached: <span id="ram-cached">0.0 GB</span></div>
         <div>Free: <span id="ram-free">0.0 GB</span></div>
       </div>
       <canvas id="ram-chart" class="history-chart" width="300" height="80"></canvas>
@@ -231,29 +233,44 @@
         </div>
       </div>
 
-      <!-- Toggle CPU/MEM view -->
-      <div class="tab-header">
-        <button id="tab-cpu" class="tab-btn active" onclick="switchProcessTab('cpu')">Sort by CPU Usage</button>
-        <button id="tab-mem" class="tab-btn" onclick="switchProcessTab('mem')">Sort by Memory Usage</button>
-      </div>
+      <!-- Tab & Table / Pie Layout -->
+      <div class="process-dashboard-layout">
+        <div class="process-left-panel">
+          <!-- Toggle CPU/MEM view -->
+          <div class="tab-header">
+            <button id="tab-cpu" class="tab-btn active" onclick="switchProcessTab('cpu')">Sort by CPU Usage</button>
+            <button id="tab-mem" class="tab-btn" onclick="switchProcessTab('mem')">Sort by Memory Usage</button>
+          </div>
 
-      <div class="process-table-container">
-        <table class="process-table" id="process-table">
-          <thead>
-            <tr>
-              <th>PID</th>
-              <th>Process Name</th>
-              <th align="right">CPU</th>
-              <th align="right">RAM</th>
-              <th width="100" align="center">Action</th>
-            </tr>
-          </thead>
-          <tbody id="process-list-body">
-            <tr>
-              <td colspan="5" align="center" class="muted-text">Gathering process statistics...</td>
-            </tr>
-          </tbody>
-        </table>
+          <div class="process-table-container">
+            <table class="process-table" id="process-table">
+              <thead>
+                <tr>
+                  <th>PID</th>
+                  <th>Process Name</th>
+                  <th align="right">CPU</th>
+                  <th align="right">RAM</th>
+                  <th width="100" align="center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="process-list-body">
+                <tr>
+                  <td colspan="5" align="center" class="muted-text">Gathering process statistics...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="process-right-panel">
+          <h3>Memory Allocation</h3>
+          <div class="pie-chart-container">
+            <canvas id="ram-pie-chart" width="140" height="140"></canvas>
+            <div id="pie-legend" class="pie-legend">
+              <!-- Legend items will be injected here dynamically -->
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>

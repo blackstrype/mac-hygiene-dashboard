@@ -1,12 +1,14 @@
 // Custom Lightweight Canvas Chart Class
 class MiniChart {
-  constructor(canvasId, maxPoints = 30, color = '#6366f1') {
+  constructor(canvasId, maxPoints = 30, color = '#6366f1', type = 'percent') {
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
     this.maxPoints = maxPoints;
     this.color = color;
+    this.type = type; // 'percent', 'ram', 'swap'
     this.data = Array(maxPoints).fill(0);
+    this.totalRamGB = 16.0; // default, updated dynamically
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -77,6 +79,108 @@ class MiniChart {
     ctx.strokeStyle = this.color;
     ctx.lineWidth = 2;
     ctx.stroke();
+
+    // Draw Y-axis watermark labels on the right
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    
+    let topLabel = '';
+    let bottomLabel = '0';
+    
+    if (this.type === 'percent') {
+      topLabel = '100%';
+      bottomLabel = '0%';
+    } else if (this.type === 'ram') {
+      topLabel = `${this.totalRamGB.toFixed(0)} GB`;
+      bottomLabel = '0 GB';
+    } else if (this.type === 'swap') {
+      topLabel = `${maxVal.toFixed(1)} GB`;
+      bottomLabel = '0 GB';
+    }
+    
+    ctx.fillText(topLabel, w - 8, 12);
+    ctx.fillText(bottomLabel, w - 8, h - 6);
+  }
+}
+
+// Custom Lightweight Donut/Pie Chart Class
+class PieChart {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    if (!this.canvas) return;
+    this.ctx = this.canvas.getContext('2d');
+    this.data = [];
+    this.colors = [
+      '#ef4444', // Core (Red)
+      '#f59e0b', // Browser (Orange/Yellow)
+      '#6366f1', // IDE & Dev (Indigo)
+      '#10b981', // Cloud Storage (Green)
+      '#8b5cf6', // Other Apps (Violet)
+      '#06b6d4', // Cached (Cyan)
+      '#8a92b2'  // Free (Muted Blue)
+    ];
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    if (!this.canvas) return;
+    const rect = this.canvas.getBoundingClientRect();
+    this.canvas.width = rect.width * window.devicePixelRatio;
+    this.canvas.height = rect.height * window.devicePixelRatio;
+    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    this.draw();
+  }
+
+  updateData(newData) {
+    this.data = newData;
+    this.draw();
+  }
+
+  draw() {
+    if (!this.ctx || !this.canvas || !this.data || this.data.length === 0) return;
+    const ctx = this.ctx;
+    const rect = this.canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    
+    ctx.clearRect(0, 0, w, h);
+    
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(cx, cy) - 5;
+    
+    const total = this.data.reduce((sum, d) => sum + d.val, 0);
+    if (total === 0) return;
+    
+    let startAngle = -Math.PI / 2; // Start at 12 o'clock
+    
+    this.data.forEach((slice, idx) => {
+      const sliceAngle = (slice.val / total) * 2 * Math.PI;
+      
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
+      ctx.closePath();
+      
+      ctx.fillStyle = this.colors[idx % this.colors.length];
+      ctx.fill();
+      
+      // Separator stroke
+      ctx.strokeStyle = '#161825'; // matches card background
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      startAngle += sliceAngle;
+    });
+
+    // Donut hole
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.55, 0, 2 * Math.PI);
+    ctx.closePath();
+    ctx.fillStyle = '#161825'; // matches background
+    ctx.fill();
   }
 }
 
@@ -86,11 +190,13 @@ let activeProcessTab = 'cpu';
 let processData = { topCpu: [], topMem: [] };
 let cacheData = {};
 let selectedCaches = new Set();
+let latestStats = null;
 
 // Initialize Charts
-const cpuChart = new MiniChart('cpu-chart', 30, '#6366f1');
-const ramChart = new MiniChart('ram-chart', 30, '#8b5cf6');
-const swapChart = new MiniChart('swap-chart', 30, '#ec4899');
+const cpuChart = new MiniChart('cpu-chart', 30, '#6366f1', 'percent');
+const ramChart = new MiniChart('ram-chart', 30, '#8b5cf6', 'ram');
+const swapChart = new MiniChart('swap-chart', 30, '#ec4899', 'swap');
+const ramPieChart = new PieChart('ram-pie-chart');
 
 // Format Helper: Bytes to Human Readable
 function formatBytes(bytes, decimals = 2) {
@@ -112,6 +218,7 @@ async function fetchStats() {
   try {
     const res = await fetch('/api/stats');
     const data = await res.json();
+    latestStats = data;
 
     // 1. CPU
     const cpuTotal = Math.round(data.cpu.user + data.cpu.system);
@@ -126,8 +233,15 @@ async function fetchStats() {
     const ramPct = Math.round((data.memory.used / data.memory.total) * 100);
     document.getElementById('ram-pct-val').innerText = `${ramPct}%`;
     document.getElementById('ram-gauge-fill').style.width = `${ramPct}%`;
+    
+    // Set chart total RAM dynamically
+    const totalRAM_GB = data.memory.total / (1024 * 1024 * 1024);
+    ramChart.totalRamGB = totalRAM_GB;
+
+    document.getElementById('ram-active').innerText = formatGB(data.memory.active);
     document.getElementById('ram-wired').innerText = formatGB(data.memory.wired);
     document.getElementById('ram-compressed').innerText = formatGB(data.memory.compressed);
+    document.getElementById('ram-cached').innerText = formatGB(data.memory.inactive);
     document.getElementById('ram-free').innerText = formatGB(data.memory.free);
     ramChart.addData(ramPct);
 
@@ -175,6 +289,7 @@ async function fetchStats() {
     document.getElementById('battery-cycles').innerText = data.battery.cycleCount;
     document.getElementById('battery-charging-status').innerText = data.battery.isCharging ? 'Charging' : 'On Battery';
 
+    updatePieChart();
   } catch (error) {
     console.error('Error fetching stats:', error);
   }
@@ -254,6 +369,7 @@ async function fetchProcesses() {
 
     // Render list
     renderProcessList();
+    updatePieChart();
   } catch (error) {
     console.error('Error fetching processes:', error);
   }
@@ -618,3 +734,58 @@ window.handleInfoClick = handleInfoClick;
 window.showProcessInfo = showProcessInfo;
 window.closeProcessInfo = closeProcessInfo;
 window.terminateFromDialog = terminateFromDialog;
+
+// Update memory allocation donut chart
+function updatePieChart() {
+  if (!latestStats || !processData || !processData.categories) return;
+  
+  const total = latestStats.memory.total;
+  const totalGB = total / (1024 * 1024 * 1024);
+  
+  const wired = latestStats.memory.wired / (1024 * 1024 * 1024);
+  const compressed = latestStats.memory.compressed / (1024 * 1024 * 1024);
+  const cached = latestStats.memory.inactive / (1024 * 1024 * 1024);
+  const free = latestStats.memory.free / (1024 * 1024 * 1024);
+  const active = latestStats.memory.active / (1024 * 1024 * 1024);
+  
+  // Categories mem values are percentages of total RAM
+  const browser = (processData.categories.browser.mem / 100) * totalGB;
+  const dev = (processData.categories.dev.mem / 100) * totalGB;
+  const cloudSync = (processData.categories.cloudSync.mem / 100) * totalGB;
+  
+  // Other apps is whatever is left of active memory
+  const otherApps = Math.max(0, active - (browser + dev + cloudSync));
+  const core = wired + compressed;
+  
+  const pieData = [
+    { label: 'Core System', val: core, color: '#ef4444' },
+    { label: 'Browser/Web', val: browser, color: '#f59e0b' },
+    { label: 'IDEs & Dev', val: dev, color: '#6366f1' },
+    { label: 'Cloud Sync', val: cloudSync, color: '#10b981' },
+    { label: 'Other Apps', val: otherApps, color: '#8b5cf6' },
+    { label: 'Cached Memory', val: cached, color: '#06b6d4' },
+    { label: 'Free Memory', val: free, color: '#8a92b2' }
+  ];
+  
+  // Render Pie Chart
+  ramPieChart.updateData(pieData);
+  
+  // Render Legend
+  const legend = document.getElementById('pie-legend');
+  if (legend) {
+    legend.innerHTML = pieData.map((item, idx) => {
+      const pct = ((item.val / totalGB) * 100).toFixed(0);
+      return `
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: ${item.color}"></div>
+          <div class="legend-label">${item.label}</div>
+          <div class="legend-value">${item.val.toFixed(2)} GB (${pct}%)</div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+// Expose PieChart class to window
+window.PieChart = PieChart;
+window.updatePieChart = updatePieChart;

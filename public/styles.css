@@ -317,9 +317,18 @@ body {
   transition: width 1s ease-out;
 }
 
-.load-averages, .ram-breakdown {
+.load-averages {
   display: flex;
   justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.ram-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px 12px;
   font-size: 0.8rem;
   color: var(--color-text-muted);
   margin-bottom: 1.25rem;
@@ -885,4 +894,93 @@ body {
   margin-top: 1.5rem;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   padding-top: 1rem;
+}
+
+/* Process dashboard Layout (Process Table + Donut Chart) */
+.process-dashboard-layout {
+  display: grid;
+  grid-template-columns: 1.7fr 1.3fr;
+  gap: 2rem;
+  margin-top: 1rem;
+  align-items: start;
+}
+
+.process-left-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.process-right-panel {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.process-right-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.5rem;
+}
+
+.pie-chart-container {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+#ram-pie-chart {
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  flex: 1;
+  min-width: 180px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+}
+
+.legend-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.legend-value {
+  margin-left: auto;
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .process-dashboard-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
 }

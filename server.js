@@ -102,7 +102,7 @@ app.get('/api/stats', async (req, res) => {
 
     // D. RAM Stats
     let ramTotal = os.totalmem();
-    let ramUsed = 0, ramWired = 0, ramCompressed = 0, ramFree = 0;
+    let ramUsed = 0, ramWired = 0, ramCompressed = 0, ramFree = 0, ramActive = 0, ramInactive = 0;
     try {
       const { stdout: pageOut } = await execAsync('sysctl -n hw.pagesize');
       const pageSize = parseInt(pageOut.trim()) || 16384;
@@ -126,6 +126,8 @@ app.get('/api/stats', async (req, res) => {
       ramWired = wired;
       ramCompressed = compressed;
       ramFree = free + speculative;
+      ramActive = active;
+      ramInactive = inactive;
       ramUsed = ramTotal - ramFree;
     } catch (e) {
       console.error('Error getting RAM stats:', e.message);
@@ -210,6 +212,8 @@ app.get('/api/stats', async (req, res) => {
         total: ramTotal,
         used: ramUsed,
         free: ramFree,
+        active: ramActive,
+        inactive: ramInactive,
         wired: ramWired,
         compressed: ramCompressed
       },
