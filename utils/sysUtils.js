@@ -30,3 +30,21 @@ export async function getDirSize(dirPath) {
     return 0;
   }
 }
+
+// Helper to read the start of a file for AI preview (max 1000 bytes)
+export async function getFilePreview(filePath, maxBytes = 1000) {
+  try {
+    const handle = await fs.open(filePath, 'r');
+    const buffer = Buffer.alloc(maxBytes);
+    const { bytesRead } = await handle.read(buffer, 0, maxBytes, 0);
+    await handle.close();
+    
+    const raw = buffer.toString('utf8', 0, bytesRead);
+    // Remove binary control characters
+    const clean = raw.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+    return clean.trim();
+  } catch (error) {
+    console.error(`Error reading preview for ${filePath}:`, error.message);
+    return '';
+  }
+}

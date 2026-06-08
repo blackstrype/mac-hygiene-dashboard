@@ -99,6 +99,13 @@ function cacheDOM() {
   DOM.diskListBody = document.getElementById('disk-list-body');
   DOM.diskLoading = document.getElementById('disk-loading');
   DOM.diskTable = document.getElementById('disk-table');
+
+  // AI Analysis DOM items
+  DOM.aiAnalysisDialog = document.getElementById('ai-analysis-dialog');
+  DOM.btnCloseAiDialog = document.getElementById('btn-close-ai-dialog');
+  DOM.aiFileName = document.getElementById('ai-file-name');
+  DOM.aiSafenessPct = document.getElementById('ai-safeness-pct');
+  DOM.aiLoading = document.getElementById('ai-loading');
 }
 
 function setText(element, val) {
@@ -788,6 +795,7 @@ function renderDiskTable(items, totalSize) {
         </td>
         <td align="center">
           <div class="disk-actions-cell">
+            <button class="btn-disk-action ai" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}">🤖 AI</button>
             <button class="btn-disk-action reveal" data-path="${escapeHtml(item.path)}">Reveal</button>
             ${deleteBtnHtml}
           </div>
@@ -837,6 +845,73 @@ async function deleteDiskItem(path, name) {
 
 function closeDiskAnalyzer() {
   if (DOM.diskAnalyzerDialog) DOM.diskAnalyzerDialog.close();
+}
+
+// AI Analysis Functions
+async function showAiAnalysis(targetPath, name) {
+  const dialog = DOM.aiAnalysisDialog;
+  if (dialog) dialog.showModal();
+
+  if (DOM.aiLoading) DOM.aiLoading.style.display = 'flex';
+  const resultContent = document.getElementById('ai-result-content');
+  if (resultContent) resultContent.style.display = 'none';
+
+  setText(DOM.aiFileName, name);
+
+  try {
+    const res = await fetch('/api/disk/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: targetPath })
+    });
+
+    if (res.status === 412) {
+      const data = await res.json();
+      alert(`AI key missing:\n\n${data.instructions}`);
+      closeAiAnalysis();
+      return;
+    }
+
+    if (!res.ok) throw new Error('AI analysis failed');
+
+    const data = await res.json();
+
+    setText(document.getElementById('ai-classification'), data.classification || 'Unknown');
+    setText(document.getElementById('ai-purpose'), data.purpose || 'No description available.');
+    setText(DOM.aiSafenessPct, `${data.safeness || 0}%`);
+    setText(document.getElementById('ai-assessment'), data.assessment || 'No safety advice.');
+
+    const ring = document.getElementById('ai-safeness-ring');
+    if (ring) {
+      ring.style.strokeDashoffset = '213.6';
+      
+      const safeness = typeof data.safeness === 'number' ? data.safeness : 85;
+      let strokeColor = 'var(--color-success)';
+      if (safeness < 50) {
+        strokeColor = 'var(--color-danger)';
+      } else if (safeness < 90) {
+        strokeColor = 'var(--color-warning)';
+      }
+      ring.style.stroke = strokeColor;
+      
+      const offset = 213.6 * (1 - safeness / 100);
+      setTimeout(() => {
+        ring.style.strokeDashoffset = offset;
+      }, 50);
+    }
+
+    if (resultContent) resultContent.style.display = 'block';
+  } catch (error) {
+    console.error('Error getting AI analysis:', error);
+    alert(`Could not load AI analysis: ${error.message}`);
+    closeAiAnalysis();
+  } finally {
+    if (DOM.aiLoading) DOM.aiLoading.style.display = 'none';
+  }
+}
+
+function closeAiAnalysis() {
+  if (DOM.aiAnalysisDialog) DOM.aiAnalysisDialog.close();
 }
 
 async function init() {
@@ -931,6 +1006,14 @@ async function init() {
       deleteDiskItem(p, name);
       return;
     }
+
+    const aiBtn = e.target.closest('.btn-disk-action.ai');
+    if (aiBtn) {
+      const p = aiBtn.getAttribute('data-path');
+      const name = aiBtn.getAttribute('data-name');
+      showAiAnalysis(p, name);
+      return;
+    }
   });
 
   if (DOM.diskAnalyzerDialog && !('closedBy' in HTMLDialogElement.prototype)) {
@@ -947,6 +1030,28 @@ async function init() {
       
       if (!isDialogContent) {
         closeDiskAnalyzer();
+      }
+    });
+  }
+
+  // AI Dialog Close Bindings
+  DOM.btnCloseAiDialog?.addEventListener('click', closeAiAnalysis);
+  document.getElementById('btn-close-ai-dialog-sec')?.addEventListener('click', closeAiAnalysis);
+
+  if (DOM.aiAnalysisDialog && !('closedBy' in HTMLDialogElement.prototype)) {
+    DOM.aiAnalysisDialog.addEventListener('click', (event) => {
+      if (event.target !== DOM.aiAnalysisDialog) return;
+      
+      const rect = DOM.aiAnalysisDialog.getBoundingClientRect();
+      const isDialogContent = (
+        rect.top <= event.clientY &&
+        event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX &&
+        event.clientX <= rect.left + rect.width
+      );
+      
+      if (!isDialogContent) {
+        closeAiAnalysis();
       }
     });
   }

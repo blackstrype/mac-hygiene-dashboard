@@ -359,6 +359,54 @@
     </div>
   </dialog>
 
+  <!-- AI Analysis Dialog -->
+  <dialog id="ai-analysis-dialog" class="dialog-card" closedby="any" aria-labelledby="ai-dialog-title">
+    <div class="dialog-header">
+      <h2 id="ai-dialog-title">AI File Analysis</h2>
+      <button class="btn-close-ai-dialog" id="btn-close-ai-dialog">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="ai-loading" id="ai-loading" style="display: none;">
+        <div class="spinner"></div>
+        <p style="margin-top: 10px; color: var(--color-text-muted);">ZenMac AI is scanning content...</p>
+      </div>
+      
+      <div id="ai-result-content">
+        <div class="info-group">
+          <div class="info-label">Item Name</div>
+          <div class="info-value" id="ai-file-name" style="color: var(--color-text); font-family: monospace;">filename.txt</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">AI Classification</div>
+          <div class="info-value" id="ai-classification">Gradle Cache File</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Description & Purpose</div>
+          <p class="info-desc" id="ai-purpose">Detailed AI assessment of the file origin.</p>
+        </div>
+
+        <div class="safeness-section">
+          <div class="safeness-label">Delete Safeness Rating</div>
+          <div class="safeness-flex">
+            <div class="safeness-gauge-container">
+              <svg class="safeness-ring" width="80" height="80">
+                <circle class="ring-bg" cx="40" cy="40" r="34"></circle>
+                <circle class="ring-fill" id="ai-safeness-ring" cx="40" cy="40" r="34" stroke-dasharray="213.6" stroke-dashoffset="213.6"></circle>
+              </svg>
+              <div class="safeness-text-overlay" id="ai-safeness-pct">0%</div>
+            </div>
+            <div class="safeness-assessment" id="ai-assessment" style="color: var(--color-text);">
+              Safe to delete.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn secondary" id="btn-close-ai-dialog-sec">Close</button>
+    </div>
+  </dialog>
+
   <!-- Scripts -->
   <script type="module" src="app.js"></script>
 </body>
