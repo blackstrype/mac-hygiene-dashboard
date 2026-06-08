@@ -9,6 +9,7 @@ let processData = { topCpu: [], topMem: [] };
 let cacheData = {};
 let selectedCaches = new Set();
 let latestStats = null;
+let dialogTargetPid = null;
 
 // Initialize Charts
 const cpuChart = new MiniChart('cpu-chart', 30, '#6366f1', 'percent');
@@ -16,90 +17,170 @@ const ramChart = new MiniChart('ram-chart', 30, '#8b5cf6', 'ram');
 const swapChart = new MiniChart('swap-chart', 30, '#ec4899', 'swap');
 const ramPieChart = new PieChart('ram-pie-chart');
 
-// Fetch System Stats
-async function fetchStats() {
+// DOM Caching Registry
+const DOM = {};
+
+function cacheDOM() {
+  DOM.cpuTotalVal = document.getElementById('cpu-total-val');
+  DOM.cpuGaugeFill = document.getElementById('cpu-gauge-fill');
+  DOM.load1m = document.getElementById('load-1m');
+  DOM.load5m = document.getElementById('load-5m');
+  DOM.load15m = document.getElementById('load-15m');
+  
+  DOM.ramPctVal = document.getElementById('ram-pct-val');
+  DOM.ramGaugeFill = document.getElementById('ram-gauge-fill');
+  DOM.ramActive = document.getElementById('ram-active');
+  DOM.ramWired = document.getElementById('ram-wired');
+  DOM.ramCompressed = document.getElementById('ram-compressed');
+  DOM.ramCached = document.getElementById('ram-cached');
+  DOM.ramFree = document.getElementById('ram-free');
+  
+  DOM.swapVal = document.getElementById('swap-val');
+  DOM.swapGaugeFill = document.getElementById('swap-gauge-fill');
+  DOM.swapWarning = document.getElementById('swap-warning');
+  
+  DOM.diskPctVal = document.getElementById('disk-pct-val');
+  DOM.diskProgressFill = document.getElementById('disk-progress-fill');
+  DOM.diskFree = document.getElementById('disk-free');
+  DOM.diskUsed = document.getElementById('disk-used');
+  DOM.diskTotal = document.getElementById('disk-total');
+  DOM.diskAlertBox = document.getElementById('disk-alert-box');
+  
+  DOM.batteryPctVal = document.getElementById('battery-pct-val');
+  DOM.batteryCondition = document.getElementById('battery-condition');
+  DOM.batteryCapacity = document.getElementById('battery-capacity');
+  DOM.batteryCycles = document.getElementById('battery-cycles');
+  DOM.batteryChargingStatus = document.getElementById('battery-charging-status');
+
+  DOM.activePresetText = document.getElementById('active-preset-text');
+  DOM.currentPresetBadge = document.getElementById('current-preset-badge');
+  DOM.presetSync = document.getElementById('preset-sync');
+  DOM.presetCoding = document.getElementById('preset-coding');
+  DOM.presetCinema = document.getElementById('preset-cinema');
+  
+  DOM.catSyncCpu = document.getElementById('cat-sync-cpu');
+  DOM.catSyncMem = document.getElementById('cat-sync-mem');
+  DOM.catBrowserCpu = document.getElementById('cat-browser-cpu');
+  DOM.catBrowserMem = document.getElementById('cat-browser-mem');
+  DOM.catDevCpu = document.getElementById('cat-dev-cpu');
+  DOM.catDevMem = document.getElementById('cat-dev-mem');
+  
+  DOM.processListBody = document.getElementById('process-list-body');
+  DOM.cacheListBody = document.getElementById('cache-list-body');
+  DOM.tabCpu = document.getElementById('tab-cpu');
+  DOM.tabMem = document.getElementById('tab-mem');
+  
+  DOM.cleanerActionsBar = document.getElementById('cleaner-actions-bar');
+  DOM.selectedCacheSummary = document.getElementById('selected-cache-summary');
+  DOM.selectAllCaches = document.getElementById('select-all-caches');
+  DOM.btnScan = document.getElementById('btn-scan');
+  DOM.btnClean = document.getElementById('btn-clean');
+  
+  DOM.infoProcName = document.getElementById('info-proc-name');
+  DOM.infoProcRisk = document.getElementById('info-proc-risk');
+  DOM.infoProcDesc = document.getElementById('info-proc-desc');
+  DOM.infoSafenessPct = document.getElementById('info-safeness-pct');
+  DOM.infoSafenessRing = document.getElementById('info-safeness-ring');
+  DOM.infoSafenessDesc = document.getElementById('info-safeness-desc');
+  DOM.btnDialogTerminate = document.getElementById('btn-dialog-terminate');
+  DOM.processInfoDialog = document.getElementById('process-info-dialog');
+  
+  DOM.pieLegend = document.getElementById('pie-legend');
+}
+
+function setText(element, val) {
+  if (element) {
+    element.innerText = val;
+  }
+}
+
+// UI Update Subroutines
+function updateCpuUI(cpu) {
+  const cpuTotal = Math.round(cpu.user + cpu.system);
+  setText(DOM.cpuTotalVal, `${cpuTotal}%`);
+  if (DOM.cpuGaugeFill) DOM.cpuGaugeFill.style.width = `${cpuTotal}%`;
+  setText(DOM.load1m, cpu.loadAvg[0].toFixed(2));
+  setText(DOM.load5m, cpu.loadAvg[1].toFixed(2));
+  setText(DOM.load15m, cpu.loadAvg[2].toFixed(2));
+  cpuChart.addData(cpuTotal);
+}
+
+function updateRamUI(memory) {
+  const ramPct = Math.round((memory.used / memory.total) * 100);
+  setText(DOM.ramPctVal, `${ramPct}%`);
+  if (DOM.ramGaugeFill) DOM.ramGaugeFill.style.width = `${ramPct}%`;
+  
+  const totalRAM_GB = memory.total / (1024 * 1024 * 1024);
+  ramChart.totalRamGB = totalRAM_GB;
+
+  setText(DOM.ramActive, formatGB(memory.active));
+  setText(DOM.ramWired, formatGB(memory.wired));
+  setText(DOM.ramCompressed, formatGB(memory.compressed));
+  setText(DOM.ramCached, formatGB(memory.inactive));
+  setText(DOM.ramFree, formatGB(memory.free));
+  ramChart.addData(ramPct);
+}
+
+function updateSwapUI(swap) {
+  const swapGB = swap.used / (1024 * 1024 * 1024);
+  setText(DOM.swapVal, `${swapGB.toFixed(2)} GB`);
+  
+  const swapMax = Math.max(swap.total, 1024 * 1024 * 1024);
+  const swapPct = Math.round((swap.used / swapMax) * 100);
+  if (DOM.swapGaugeFill) DOM.swapGaugeFill.style.width = `${swapPct}%`;
+  
+  if (DOM.swapWarning) {
+    DOM.swapWarning.style.display = swapGB > 0.5 ? 'flex' : 'none';
+  }
+  swapChart.addData(swapGB);
+}
+
+function updateDiskUI(disk) {
+  setText(DOM.diskPctVal, `${disk.percentage}%`);
+  if (DOM.diskProgressFill) {
+    DOM.diskProgressFill.style.width = `${disk.percentage}%`;
+    DOM.diskProgressFill.classList.toggle('warning', disk.percentage >= 90);
+  }
+  
+  if (DOM.diskPctVal) DOM.diskPctVal.classList.toggle('danger', disk.percentage >= 90);
+  if (DOM.diskFree) DOM.diskFree.classList.toggle('critical-text', disk.percentage >= 90);
+  if (DOM.diskAlertBox) {
+    DOM.diskAlertBox.style.display = disk.percentage >= 90 ? 'flex' : 'none';
+  }
+  
+  setText(DOM.diskUsed, formatBytes(disk.used));
+  setText(DOM.diskFree, formatBytes(disk.free));
+  setText(DOM.diskTotal, formatBytes(disk.total));
+}
+
+function updateBatteryUI(battery) {
+  setText(DOM.batteryPctVal, `${battery.percentage}%`);
+  setText(DOM.batteryCondition, battery.condition);
+  setText(DOM.batteryCapacity, `${battery.maxCapacity}%`);
+  setText(DOM.batteryCycles, battery.cycleCount);
+  setText(DOM.batteryChargingStatus, battery.isCharging ? 'Charging' : 'On Battery');
+}
+
+// Controller Functions
+async function updateStats() {
   try {
     const res = await fetch('/api/stats');
     const data = await res.json();
     latestStats = data;
 
-    // 1. CPU
-    const cpuTotal = Math.round(data.cpu.user + data.cpu.system);
-    document.getElementById('cpu-total-val').innerText = `${cpuTotal}%`;
-    document.getElementById('cpu-gauge-fill').style.width = `${cpuTotal}%`;
-    document.getElementById('load-1m').innerText = data.cpu.loadAvg[0].toFixed(2);
-    document.getElementById('load-5m').innerText = data.cpu.loadAvg[1].toFixed(2);
-    document.getElementById('load-15m').innerText = data.cpu.loadAvg[2].toFixed(2);
-    cpuChart.addData(cpuTotal);
-
-    // 2. RAM
-    const ramPct = Math.round((data.memory.used / data.memory.total) * 100);
-    document.getElementById('ram-pct-val').innerText = `${ramPct}%`;
-    document.getElementById('ram-gauge-fill').style.width = `${ramPct}%`;
-    
-    // Set chart total RAM dynamically
-    const totalRAM_GB = data.memory.total / (1024 * 1024 * 1024);
-    ramChart.totalRamGB = totalRAM_GB;
-
-    document.getElementById('ram-active').innerText = formatGB(data.memory.active);
-    document.getElementById('ram-wired').innerText = formatGB(data.memory.wired);
-    document.getElementById('ram-compressed').innerText = formatGB(data.memory.compressed);
-    document.getElementById('ram-cached').innerText = formatGB(data.memory.inactive);
-    document.getElementById('ram-free').innerText = formatGB(data.memory.free);
-    ramChart.addData(ramPct);
-
-    // 3. Swap
-    const swapGB = data.swap.used / (1024 * 1024 * 1024);
-    document.getElementById('swap-val').innerText = `${swapGB.toFixed(2)} GB`;
-    
-    const swapMax = Math.max(data.swap.total, 1024 * 1024 * 1024); // at least 1GB for scale
-    const swapPct = Math.round((data.swap.used / swapMax) * 100);
-    document.getElementById('swap-gauge-fill').style.width = `${swapPct}%`;
-    
-    const swapWarning = document.getElementById('swap-warning');
-    if (swapGB > 0.5) {
-      swapWarning.style.display = 'flex';
-    } else {
-      swapWarning.style.display = 'none';
-    }
-    swapChart.addData(swapGB);
-
-    // 4. Disk
-    document.getElementById('disk-pct-val').innerText = `${data.disk.percentage}%`;
-    const diskProgress = document.getElementById('disk-progress-fill');
-    diskProgress.style.width = `${data.disk.percentage}%`;
-    
-    if (data.disk.percentage >= 90) {
-      diskProgress.classList.add('warning');
-      document.getElementById('disk-pct-val').classList.add('danger');
-      document.getElementById('disk-free').classList.add('critical-text');
-      document.getElementById('disk-alert-box').style.display = 'flex';
-    } else {
-      diskProgress.classList.remove('warning');
-      document.getElementById('disk-pct-val').classList.remove('danger');
-      document.getElementById('disk-free').classList.remove('critical-text');
-      document.getElementById('disk-alert-box').style.display = 'none';
-    }
-    
-    document.getElementById('disk-used').innerText = formatBytes(data.disk.used);
-    document.getElementById('disk-free').innerText = formatBytes(data.disk.free);
-    document.getElementById('disk-total').innerText = formatBytes(data.disk.total);
-
-    // 5. Battery
-    document.getElementById('battery-pct-val').innerText = `${data.battery.percentage}%`;
-    document.getElementById('battery-condition').innerText = data.battery.condition;
-    document.getElementById('battery-capacity').innerText = `${data.battery.maxCapacity}%`;
-    document.getElementById('battery-cycles').innerText = data.battery.cycleCount;
-    document.getElementById('battery-charging-status').innerText = data.battery.isCharging ? 'Charging' : 'On Battery';
+    updateCpuUI(data.cpu);
+    updateRamUI(data.memory);
+    updateSwapUI(data.swap);
+    updateDiskUI(data.disk);
+    updateBatteryUI(data.battery);
 
     updatePieChart();
   } catch (error) {
-    console.error('Error fetching stats:', error);
+    console.error('Error updating stats:', error);
   }
 }
 
-// Fetch Sync Preset Statuses
-async function fetchPresetStatus() {
+async function updatePresetStatus() {
   try {
     const res = await fetch('/api/focus/status');
     const status = await res.json();
@@ -107,41 +188,41 @@ async function fetchPresetStatus() {
     const google = status.googleDrive;
     const one = status.oneDrive;
 
-    const activeText = document.getElementById('active-preset-text');
-    const badge = document.getElementById('current-preset-badge');
-
-    // Remove old classes
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    DOM.presetSync?.classList.remove('active');
+    DOM.presetCoding?.classList.remove('active');
+    DOM.presetCinema?.classList.remove('active');
 
     if ((google.installed && google.running) || (one.installed && one.running)) {
       activePreset = 'sync';
-      activeText.innerText = 'Sync Active';
-      badge.style.color = 'var(--color-success)';
-      badge.style.background = 'rgba(16, 185, 129, 0.1)';
-      badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-      const btn = document.getElementById('preset-sync');
-      if (btn) btn.classList.add('active');
+      setText(DOM.activePresetText, 'Sync Active');
+      if (DOM.currentPresetBadge) {
+        DOM.currentPresetBadge.style.color = 'var(--color-success)';
+        DOM.currentPresetBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+        DOM.currentPresetBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+      }
+      DOM.presetSync?.classList.add('active');
     } else {
-      // Both are stopped (or not installed)
       activePreset = 'coding';
-      activeText.innerText = 'Zen Focus Active';
-      badge.style.color = 'var(--accent-primary)';
-      badge.style.background = 'rgba(99, 102, 241, 0.1)';
-      badge.style.borderColor = 'var(--border-color-active)';
-      const btn = document.getElementById('preset-coding');
-      if (btn) btn.classList.add('active');
+      setText(DOM.activePresetText, 'Zen Focus Active');
+      if (DOM.currentPresetBadge) {
+        DOM.currentPresetBadge.style.color = 'var(--accent-primary)';
+        DOM.currentPresetBadge.style.background = 'rgba(99, 102, 241, 0.1)';
+        DOM.currentPresetBadge.style.borderColor = 'var(--border-color-active)';
+      }
+      DOM.presetCoding?.classList.add('active');
     }
   } catch (error) {
     console.error('Error checking preset status:', error);
   }
 }
 
-// Trigger Preset change
 async function setPreset(preset) {
   try {
-    // Optimistic UI change
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById(`preset-${preset}`);
+    DOM.presetSync?.classList.remove('active');
+    DOM.presetCoding?.classList.remove('active');
+    DOM.presetCinema?.classList.remove('active');
+    
+    const btn = DOM[`preset${preset.charAt(0).toUpperCase() + preset.slice(1)}`];
     if (btn) btn.classList.add('active');
 
     const res = await fetch('/api/focus/preset', {
@@ -151,39 +232,37 @@ async function setPreset(preset) {
     });
     
     await res.json();
-    setTimeout(fetchPresetStatus, 800); // give macOS process a moment to launch/stop
+    setTimeout(updatePresetStatus, 800);
   } catch (error) {
     console.error('Error setting preset:', error);
   }
 }
 
-// Fetch Processes
-async function fetchProcesses() {
+async function updateProcesses() {
   try {
     const res = await fetch('/api/processes');
     processData = await res.json();
 
-    // Update categories
-    document.getElementById('cat-sync-cpu').innerText = `${processData.categories.cloudSync.cpu}%`;
-    document.getElementById('cat-sync-mem').innerText = `${processData.categories.cloudSync.mem}%`;
+    setText(DOM.catSyncCpu, `${processData.categories.cloudSync.cpu}%`);
+    setText(DOM.catSyncMem, `${processData.categories.cloudSync.mem}%`);
     
-    document.getElementById('cat-browser-cpu').innerText = `${processData.categories.browser.cpu}%`;
-    document.getElementById('cat-browser-mem').innerText = `${processData.categories.browser.mem}%`;
+    setText(DOM.catBrowserCpu, `${processData.categories.browser.cpu}%`);
+    setText(DOM.catBrowserMem, `${processData.categories.browser.mem}%`);
     
-    document.getElementById('cat-dev-cpu').innerText = `${processData.categories.dev.cpu}%`;
-    document.getElementById('cat-dev-mem').innerText = `${processData.categories.dev.mem}%`;
+    setText(DOM.catDevCpu, `${processData.categories.dev.cpu}%`);
+    setText(DOM.catDevMem, `${processData.categories.dev.mem}%`);
 
-    // Render list
     renderProcessList();
     updatePieChart();
   } catch (error) {
-    console.error('Error fetching processes:', error);
+    console.error('Error updating processes:', error);
   }
 }
 
-// Render Process Table
 function renderProcessList() {
-  const tbody = document.getElementById('process-list-body');
+  const tbody = DOM.processListBody;
+  if (!tbody) return;
+  
   const items = activeProcessTab === 'cpu' ? processData.topCpu : processData.topMem;
 
   if (!items || items.length === 0) {
@@ -211,15 +290,13 @@ function renderProcessList() {
   }).join('');
 }
 
-// Switch Process active tab
 function switchProcessTab(tab) {
   activeProcessTab = tab;
-  document.getElementById('tab-cpu').classList.toggle('active', tab === 'cpu');
-  document.getElementById('tab-mem').classList.toggle('active', tab === 'mem');
+  DOM.tabCpu?.classList.toggle('active', tab === 'cpu');
+  DOM.tabMem?.classList.toggle('active', tab === 'mem');
   renderProcessList();
 }
 
-// Kill specific process
 async function killProcess(pid) {
   if (!confirm(`Are you sure you want to terminate process ID ${pid}?`)) return;
   try {
@@ -230,7 +307,7 @@ async function killProcess(pid) {
     });
     const result = await res.json();
     if (result.success) {
-      fetchProcesses();
+      updateProcesses();
     } else {
       alert(`Error: ${result.error}`);
     }
@@ -239,17 +316,20 @@ async function killProcess(pid) {
   }
 }
 
-// Scan Caches
 async function scanCaches() {
-  const btn = document.getElementById('btn-scan');
-  btn.innerText = 'Scanning...';
-  btn.disabled = true;
+  const btn = DOM.btnScan;
+  if (btn) {
+    btn.innerText = 'Scanning...';
+    btn.disabled = true;
+  }
 
   try {
     const res = await fetch('/api/clean/scan');
     cacheData = await res.json();
 
-    const tbody = document.getElementById('cache-list-body');
+    const tbody = DOM.cacheListBody;
+    if (!tbody) return;
+    
     const keys = Object.keys(cacheData);
 
     tbody.innerHTML = keys.map(key => {
@@ -272,17 +352,17 @@ async function scanCaches() {
       `;
     }).join('');
 
-    // Show/hide clean actions bar based on scan
     updateCacheSummary();
   } catch (error) {
     console.error('Error scanning caches:', error);
   } finally {
-    btn.innerText = 'Scan Caches';
-    btn.disabled = false;
+    if (btn) {
+      btn.innerText = 'Scan Caches';
+      btn.disabled = false;
+    }
   }
 }
 
-// Cache checkbox handlers
 function onCacheCheckboxChange(cb) {
   const key = cb.getAttribute('data-key');
   if (cb.checked) {
@@ -308,8 +388,9 @@ function toggleSelectAllCaches(headerCb) {
 }
 
 function updateCacheSummary() {
-  const actionsBar = document.getElementById('cleaner-actions-bar');
-  const summaryText = document.getElementById('selected-cache-summary');
+  const actionsBar = DOM.cleanerActionsBar;
+  const summaryText = DOM.selectedCacheSummary;
+  if (!actionsBar) return;
   
   if (selectedCaches.size === 0) {
     actionsBar.style.display = 'none';
@@ -323,11 +404,10 @@ function updateCacheSummary() {
     }
   });
 
-  summaryText.innerText = `Selected: ${selectedCaches.size} items (${formatBytes(totalSize)})`;
+  setText(summaryText, `Selected: ${selectedCaches.size} items (${formatBytes(totalSize)})`);
   actionsBar.style.display = 'flex';
 }
 
-// Clean selected caches
 async function runCleanup() {
   if (selectedCaches.size === 0) return;
   const listKeys = Array.from(selectedCaches);
@@ -336,9 +416,11 @@ async function runCleanup() {
     return;
   }
 
-  const btn = document.getElementById('btn-clean');
-  btn.innerText = 'Cleaning...';
-  btn.disabled = true;
+  const btn = DOM.btnClean;
+  if (btn) {
+    btn.innerText = 'Cleaning...';
+    btn.disabled = true;
+  }
 
   try {
     const res = await fetch('/api/clean/run', {
@@ -351,9 +433,9 @@ async function runCleanup() {
     if (result.success) {
       alert(`Successfully cleared caches!\nCleaned: ${result.cleaned.join(', ')}`);
       selectedCaches.clear();
-      document.getElementById('select-all-caches').checked = false;
+      if (DOM.selectAllCaches) DOM.selectAllCaches.checked = false;
       await scanCaches();
-      await fetchStats(); // Refresh disk space
+      await updateStats();
     } else {
       alert(`Cleanup errors occurred:\n${result.errors.join('\n')}`);
       await scanCaches();
@@ -361,13 +443,12 @@ async function runCleanup() {
   } catch (error) {
     alert(`Failed to complete cleanup: ${error.message}`);
   } finally {
-    btn.innerText = 'Clean Selected Caches';
-    btn.disabled = false;
+    if (btn) {
+      btn.innerText = 'Clean Selected Caches';
+      btn.disabled = false;
+    }
   }
 }
-
-// Dialog / Information Modal Logic
-let dialogTargetPid = null;
 
 async function handleInfoClick(btn) {
   const name = btn.getAttribute('data-name');
@@ -391,24 +472,24 @@ function getSafenessAssessment(score) {
 async function showProcessInfo(name, comm, pid) {
   dialogTargetPid = pid;
   
-  // Set dialog UI to loading state
-  document.getElementById('info-proc-name').innerText = name;
-  document.getElementById('info-proc-risk').innerText = 'Loading...';
-  document.getElementById('info-proc-desc').innerText = 'Fetching details...';
-  document.getElementById('info-safeness-pct').innerText = '0%';
+  setText(DOM.infoProcName, name);
+  setText(DOM.infoProcRisk, 'Loading...');
+  setText(DOM.infoProcDesc, 'Fetching details...');
+  setText(DOM.infoSafenessPct, '0%');
   
-  const ring = document.getElementById('info-safeness-ring');
-  ring.style.strokeDashoffset = '213.6';
-  ring.style.stroke = 'var(--color-text-muted)';
+  const ring = DOM.infoSafenessRing;
+  if (ring) {
+    ring.style.strokeDashoffset = '213.6';
+    ring.style.stroke = 'var(--color-text-muted)';
+  }
   
-  document.getElementById('info-safeness-desc').innerText = 'Analyzing safety rating...';
+  setText(DOM.infoSafenessDesc, 'Analyzing safety rating...');
   
-  const terminateBtn = document.getElementById('btn-dialog-terminate');
-  terminateBtn.disabled = true;
+  const terminateBtn = DOM.btnDialogTerminate;
+  if (terminateBtn) terminateBtn.disabled = true;
   
-  // Open dialog modal
-  const dialog = document.getElementById('process-info-dialog');
-  dialog.showModal();
+  const dialog = DOM.processInfoDialog;
+  if (dialog) dialog.showModal();
   
   try {
     const res = await fetch(`/api/processes/info?name=${encodeURIComponent(name)}&comm=${encodeURIComponent(comm)}`);
@@ -416,17 +497,13 @@ async function showProcessInfo(name, comm, pid) {
     
     const info = await res.json();
     
-    // Populate details
-    document.getElementById('info-proc-risk').innerText = info.risk || 'Unknown Process';
-    document.getElementById('info-proc-desc').innerText = info.description || 'No description available for this process.';
+    setText(DOM.infoProcRisk, info.risk || 'Unknown Process');
+    setText(DOM.infoProcDesc, info.description || 'No description available for this process.');
     
     const safeness = typeof info.safeness === 'number' ? info.safeness : 85;
-    document.getElementById('info-safeness-pct').innerText = `${safeness}%`;
+    setText(DOM.infoSafenessPct, `${safeness}%`);
+    setText(DOM.infoSafenessDesc, getSafenessAssessment(safeness));
     
-    // Safety assessment text
-    document.getElementById('info-safeness-desc').innerText = getSafenessAssessment(safeness);
-    
-    // Determine stroke color
     let strokeColor = 'var(--color-success)';
     if (safeness < 50) {
       strokeColor = 'var(--color-danger)';
@@ -434,37 +511,34 @@ async function showProcessInfo(name, comm, pid) {
       strokeColor = 'var(--color-warning)';
     }
     
-    ring.style.stroke = strokeColor;
-    const offset = 213.6 * (1 - safeness / 100);
-    // Force a minor delay or reflow for CSS transitions to work perfectly
-    setTimeout(() => {
-      ring.style.strokeDashoffset = offset;
-    }, 50);
+    if (ring) {
+      ring.style.stroke = strokeColor;
+      const offset = 213.6 * (1 - safeness / 100);
+      setTimeout(() => {
+        ring.style.strokeDashoffset = offset;
+      }, 50);
+    }
     
-    // Enable terminate button if it is not 0% safeness
-    if (safeness > 0) {
-      terminateBtn.disabled = false;
-    } else {
-      terminateBtn.disabled = true;
+    if (terminateBtn) {
+      terminateBtn.disabled = safeness === 0;
     }
   } catch (err) {
     console.error('Error fetching process info:', err);
-    document.getElementById('info-proc-risk').innerText = 'Error';
-    document.getElementById('info-proc-desc').innerText = 'Could not load details from the ZenMac service.';
-    document.getElementById('info-safeness-desc').innerText = 'Error retrieving safety score.';
+    setText(DOM.infoProcRisk, 'Error');
+    setText(DOM.infoProcDesc, 'Could not load details from the ZenMac service.');
+    setText(DOM.infoSafenessDesc, 'Error retrieving safety score.');
   }
 }
 
 function closeProcessInfo() {
-  const dialog = document.getElementById('process-info-dialog');
-  dialog.close();
+  if (DOM.processInfoDialog) DOM.processInfoDialog.close();
   dialogTargetPid = null;
 }
 
 async function terminateFromDialog() {
   if (!dialogTargetPid) return;
   const pid = dialogTargetPid;
-  const name = document.getElementById('info-proc-name').innerText;
+  const name = DOM.infoProcName?.innerText || 'Process';
   
   if (!confirm(`Are you sure you want to terminate ${name} (PID: ${pid})?`)) return;
   
@@ -477,7 +551,7 @@ async function terminateFromDialog() {
     const result = await res.json();
     if (result.success) {
       closeProcessInfo();
-      fetchProcesses();
+      updateProcesses();
     } else {
       alert(`Error: ${result.error}`);
     }
@@ -486,27 +560,6 @@ async function terminateFromDialog() {
   }
 }
 
-// Light dismiss fallback for older browsers without closedby support
-const infoDialog = document.getElementById('process-info-dialog');
-if (infoDialog && !('closedBy' in HTMLDialogElement.prototype)) {
-  infoDialog.addEventListener('click', (event) => {
-    if (event.target !== infoDialog) return;
-    
-    const rect = infoDialog.getBoundingClientRect();
-    const isDialogContent = (
-      rect.top <= event.clientY &&
-      event.clientY <= rect.top + rect.height &&
-      rect.left <= event.clientX &&
-      event.clientX <= rect.left + rect.width
-    );
-    
-    if (!isDialogContent) {
-      closeProcessInfo();
-    }
-  });
-}
-
-// Update memory allocation donut chart
 function updatePieChart() {
   if (!latestStats || !processData || !processData.categories) return;
   
@@ -519,12 +572,10 @@ function updatePieChart() {
   const free = latestStats.memory.free / (1024 * 1024 * 1024);
   const active = latestStats.memory.active / (1024 * 1024 * 1024);
   
-  // Categories mem values are percentages of total RAM
   const browser = (processData.categories.browser.mem / 100) * totalGB;
   const dev = (processData.categories.dev.mem / 100) * totalGB;
   const cloudSync = (processData.categories.cloudSync.mem / 100) * totalGB;
   
-  // Other apps is whatever is left of active memory
   const otherApps = Math.max(0, active - (browser + dev + cloudSync));
   const core = wired + compressed;
   
@@ -538,11 +589,9 @@ function updatePieChart() {
     { label: 'Free Memory', val: free, color: '#8a92b2' }
   ];
   
-  // Render Pie Chart
   ramPieChart.updateData(pieData);
   
-  // Render Legend
-  const legend = document.getElementById('pie-legend');
+  const legend = DOM.pieLegend;
   if (legend) {
     legend.innerHTML = pieData.map((item, idx) => {
       const pct = ((item.val / totalGB) * 100).toFixed(0);
@@ -557,36 +606,33 @@ function updatePieChart() {
   }
 }
 
-// Initialize Polling & Bind Dynamic Events
 async function init() {
-  // Static event bindings
-  document.getElementById('preset-coding').addEventListener('click', () => setPreset('coding'));
-  document.getElementById('preset-cinema').addEventListener('click', () => setPreset('cinema'));
-  document.getElementById('preset-sync').addEventListener('click', () => setPreset('sync'));
+  cacheDOM();
+
+  DOM.presetCoding?.addEventListener('click', () => setPreset('coding'));
+  DOM.presetCinema?.addEventListener('click', () => setPreset('cinema'));
+  DOM.presetSync?.addEventListener('click', () => setPreset('sync'));
   
-  document.getElementById('btn-scan').addEventListener('click', scanCaches);
-  document.getElementById('btn-clean').addEventListener('click', runCleanup);
+  DOM.btnScan?.addEventListener('click', scanCaches);
+  DOM.btnClean?.addEventListener('click', runCleanup);
   
-  document.getElementById('select-all-caches').addEventListener('change', (e) => toggleSelectAllCaches(e.target));
+  DOM.selectAllCaches?.addEventListener('change', (e) => toggleSelectAllCaches(e.target));
   
-  document.getElementById('tab-cpu').addEventListener('click', () => switchProcessTab('cpu'));
-  document.getElementById('tab-mem').addEventListener('click', () => switchProcessTab('mem'));
+  DOM.tabCpu?.addEventListener('click', () => switchProcessTab('cpu'));
+  DOM.tabMem?.addEventListener('click', () => switchProcessTab('mem'));
   
-  // Dialog bindings
   document.querySelectorAll('.btn-close-dialog').forEach(btn => btn.addEventListener('click', closeProcessInfo));
-  document.querySelector('.btn-close-dialog-sec').addEventListener('click', closeProcessInfo);
-  document.getElementById('btn-dialog-terminate').addEventListener('click', terminateFromDialog);
+  document.querySelector('.btn-close-dialog-sec')?.addEventListener('click', closeProcessInfo);
+  DOM.btnDialogTerminate?.addEventListener('click', terminateFromDialog);
   
-  // Event Delegation for cache list body (checkboxes)
-  document.getElementById('cache-list-body').addEventListener('change', (e) => {
+  DOM.cacheListBody?.addEventListener('change', (e) => {
     const cb = e.target.closest('.cache-checkbox');
     if (cb) {
       onCacheCheckboxChange(cb);
     }
   });
   
-  // Event Delegation for process list body (terminate & info buttons)
-  document.getElementById('process-list-body').addEventListener('click', (e) => {
+  DOM.processListBody?.addEventListener('click', (e) => {
     const killBtn = e.target.closest('.btn-kill');
     if (killBtn) {
       const pid = parseInt(killBtn.getAttribute('data-pid'), 10);
@@ -599,18 +645,32 @@ async function init() {
     }
   });
 
-  await fetchStats();
-  await fetchPresetStatus();
-  await fetchProcesses();
-  
-  // Scan caches automatically on load
+  if (DOM.processInfoDialog && !('closedBy' in HTMLDialogElement.prototype)) {
+    DOM.processInfoDialog.addEventListener('click', (event) => {
+      if (event.target !== DOM.processInfoDialog) return;
+      
+      const rect = DOM.processInfoDialog.getBoundingClientRect();
+      const isDialogContent = (
+        rect.top <= event.clientY &&
+        event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX &&
+        event.clientX <= rect.left + rect.width
+      );
+      
+      if (!isDialogContent) {
+        closeProcessInfo();
+      }
+    });
+  }
+
+  await updateStats();
+  await updatePresetStatus();
+  await updateProcesses();
   await scanCaches();
 
-  // Setup loop
-  setInterval(fetchStats, 3000);
-  setInterval(fetchProcesses, 4000);
-  setInterval(fetchPresetStatus, 8000);
+  setInterval(updateStats, 3000);
+  setInterval(updateProcesses, 4000);
+  setInterval(updatePresetStatus, 8000);
 }
 
-// Start
 window.onload = init;
