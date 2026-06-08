@@ -822,7 +822,7 @@ async function deleteDiskItem(path, name) {
   const confirm1 = confirm(`WARNING: Are you sure you want to permanently delete "${name}"?\n\nThis will delete the file or directory and all its contents recursively. This action CANNOT be undone.`);
   if (!confirm1) return;
   
-  const confirm2 = confirm(`FINAL CONFIRMATION: Type OK to delete "${name}".\nPath: ${path}`);
+  const confirm2 = confirm(`FINAL CONFIRMATION: Click OK to delete "${name}".\nPath: ${path}`);
   if (!confirm2) return;
 
   try {
