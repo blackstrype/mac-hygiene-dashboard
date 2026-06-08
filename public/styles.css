@@ -984,3 +984,266 @@ body {
     gap: 1.5rem;
   }
 }
+
+/* Disk Card Clickable Hover Indicator */
+#disk-card {
+  cursor: pointer;
+}
+#disk-card:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.15);
+}
+
+/* Large Dialog adjustments */
+.dialog-card.large-dialog {
+  max-width: 800px;
+  width: calc(100% - 2rem);
+}
+
+/* Breadcrumb Styling */
+.breadcrumb-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.breadcrumb-item {
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.breadcrumb-item:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+  color: var(--color-text);
+  font-weight: 600;
+  cursor: default;
+}
+
+.breadcrumb-item.active:hover {
+  text-decoration: none;
+}
+
+.breadcrumb-separator {
+  color: rgba(255, 255, 255, 0.15);
+  user-select: none;
+}
+
+/* Disk Visual segmented bar */
+.disk-visual-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.disk-breakdown-bar {
+  display: flex;
+  height: 24px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.disk-breakdown-segment {
+  height: 100%;
+  transition: width 0.5s ease-out;
+}
+
+.disk-breakdown-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.76rem;
+  justify-content: flex-start;
+}
+
+.disk-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+}
+
+.disk-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.disk-legend-name {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.disk-legend-size {
+  color: var(--color-text);
+  font-family: monospace;
+}
+
+/* Disk list body & layout */
+.disk-list-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.disk-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(18, 20, 32, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 10px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--accent-primary);
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.disk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.disk-table th, .disk-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.disk-table th {
+  background: rgba(255, 255, 255, 0.02);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.disk-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.disk-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.disk-item-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: monospace;
+}
+
+.disk-item-name.directory {
+  cursor: pointer;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.disk-item-name.directory:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.disk-icon {
+  font-size: 1.1rem;
+}
+
+.disk-pct-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.disk-pct-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background-color: var(--accent-primary);
+}
+
+/* Actions in Disk table */
+.disk-actions-cell {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.btn-disk-action {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  color: var(--color-text);
+}
+
+.btn-disk-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-disk-action.delete {
+  color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+.btn-disk-action.delete:hover {
+  background: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+}
+
+.btn-close-disk-dialog {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1.8rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: var(--transition-smooth);
+}
+
+.btn-close-disk-dialog:hover {
+  color: white;
+  transform: rotate(90deg);
+}

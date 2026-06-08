@@ -318,6 +318,47 @@
     </div>
   </dialog>
 
+  <!-- Disk Analyzer Dialog -->
+  <dialog id="disk-analyzer-dialog" class="dialog-card large-dialog" closedby="any" aria-labelledby="disk-dialog-title">
+    <div class="dialog-header">
+      <h2 id="disk-dialog-title">Disk Usage Analyzer</h2>
+      <button class="btn-close-disk-dialog" id="btn-close-disk-dialog">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="breadcrumb-container" id="disk-breadcrumbs">
+        <span class="breadcrumb-item active">Home</span>
+      </div>
+
+      <div class="disk-visual-breakdown">
+        <div class="disk-breakdown-bar" id="disk-breakdown-bar"></div>
+        <div class="disk-breakdown-legend" id="disk-breakdown-legend"></div>
+      </div>
+
+      <div class="disk-list-container">
+        <div class="disk-loading" id="disk-loading" style="display: none;">
+          <div class="spinner"></div>
+          <p style="margin-top: 10px; color: var(--color-text-muted);">Scanning files & folders...</p>
+        </div>
+        <table class="disk-table" id="disk-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th width="100" align="right">Size</th>
+              <th width="160">Allocation</th>
+              <th width="120" align="center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="disk-list-body">
+            <!-- Dynamic entries -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn secondary" id="btn-close-disk-dialog-sec">Close</button>
+    </div>
+  </dialog>
+
   <!-- Scripts -->
   <script type="module" src="app.js"></script>
 </body>

@@ -637,6 +637,129 @@ app.get('/api/processes/info', (req, res) => {
   res.json({ name, ...info });
 });
 
+// 9. Scan directory for Disk Usage Analyzer
+app.get('/api/disk/scan', async (req, res) => {
+  const targetPath = req.query.path ? path.resolve(req.query.path) : home;
+  
+  if (!targetPath.startsWith(home)) {
+    return res.status(403).json({ error: 'Access Denied: Path is outside user home directory.' });
+  }
+
+  try {
+    const files = await fs.readdir(targetPath, { withFileTypes: true });
+    
+    const scanPromises = files.map(async (file) => {
+      const fullPath = path.join(targetPath, file.name);
+      
+      // Library is massive and protected by macOS Sandbox (TCC). Avoid deep traversal.
+      if (file.name === 'Library' && targetPath === home) {
+        return {
+          name: file.name,
+          path: fullPath,
+          isDirectory: true,
+          size: 0,
+          isLibrary: true
+        };
+      }
+      
+      let size = 0;
+      if (file.isDirectory()) {
+        try {
+          const escapedPath = fullPath.replace(/(["\\$])/g, '\\$1');
+          const { stdout } = await execAsync(`du -sk "${escapedPath}"`, { timeout: 8000 });
+          const match = stdout.trim().match(/^(\d+)/);
+          if (match) {
+            size = parseInt(match[1]) * 1024; // convert KB to bytes
+          }
+        } catch {
+          size = 0;
+        }
+      } else if (file.isFile()) {
+        try {
+          const stats = await fs.stat(fullPath);
+          size = stats.size;
+        } catch {
+          size = 0;
+        }
+      }
+      
+      return {
+        name: file.name,
+        path: fullPath,
+        isDirectory: file.isDirectory(),
+        size
+      };
+    });
+
+    const results = await Promise.all(scanPromises);
+    
+    // Sort from largest to smallest
+    results.sort((a, b) => b.size - a.size);
+    
+    res.json({
+      path: targetPath,
+      parent: targetPath === home ? null : path.dirname(targetPath),
+      items: results
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 10. Open directory/file in Finder
+app.post('/api/disk/open', async (req, res) => {
+  const { path: targetPath } = req.body;
+  if (!targetPath) return res.status(400).json({ error: 'Path is required' });
+  
+  const resolved = path.resolve(targetPath);
+  if (!resolved.startsWith(home)) {
+    return res.status(403).json({ error: 'Access Denied: Path is outside user home directory.' });
+  }
+  
+  try {
+    const escaped = resolved.replace(/(["\\$])/g, '\\$1');
+    await execAsync(`open "${escaped}"`);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: `Failed to open: ${error.message}` });
+  }
+});
+
+// 11. Delete directory/file
+app.post('/api/disk/delete', async (req, res) => {
+  const { path: targetPath } = req.body;
+  if (!targetPath) return res.status(400).json({ error: 'Path is required' });
+  
+  const resolved = path.resolve(targetPath);
+  
+  if (!resolved.startsWith(home)) {
+    return res.status(403).json({ error: 'Access Denied: Cannot delete outside home directory.' });
+  }
+  
+  const protectedPaths = [
+    home,
+    path.join(home, 'Library'),
+    path.join(home, 'Desktop'),
+    path.join(home, 'Documents'),
+    path.join(home, 'Downloads'),
+    path.join(home, 'Applications'),
+    path.join(home, 'Movies'),
+    path.join(home, 'Music'),
+    path.join(home, 'Pictures')
+  ];
+  
+  if (protectedPaths.includes(resolved)) {
+    return res.status(403).json({ error: 'Access Denied: Deleting primary system or user directories is prohibited for safety reasons.' });
+  }
+  
+  try {
+    await fs.rm(resolved, { recursive: true, force: true });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: `Deletion failed: ${error.message}` });
+  }
+});
+
 // Start listening
 app.listen(PORT, () => {
   console.log(`ZenMac dashboard backend running on http://localhost:${PORT}`);

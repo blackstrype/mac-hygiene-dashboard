@@ -10,6 +10,7 @@ let cacheData = {};
 let selectedCaches = new Set();
 let latestStats = null;
 let dialogTargetPid = null;
+let currentDiskPath = null;
 
 // Initialize Charts
 const cpuChart = new MiniChart('cpu-chart', 30, '#6366f1', 'percent');
@@ -39,6 +40,7 @@ function cacheDOM() {
   DOM.swapGaugeFill = document.getElementById('swap-gauge-fill');
   DOM.swapWarning = document.getElementById('swap-warning');
   
+  DOM.diskCard = document.getElementById('disk-card');
   DOM.diskPctVal = document.getElementById('disk-pct-val');
   DOM.diskProgressFill = document.getElementById('disk-progress-fill');
   DOM.diskFree = document.getElementById('disk-free');
@@ -86,6 +88,17 @@ function cacheDOM() {
   DOM.processInfoDialog = document.getElementById('process-info-dialog');
   
   DOM.pieLegend = document.getElementById('pie-legend');
+
+  // Disk Analyzer DOM items
+  DOM.diskAnalyzerDialog = document.getElementById('disk-analyzer-dialog');
+  DOM.btnCloseDiskDialog = document.getElementById('btn-close-disk-dialog');
+  DOM.btnCloseDiskDialogSec = document.getElementById('btn-close-disk-dialog-sec');
+  DOM.diskBreadcrumbs = document.getElementById('disk-breadcrumbs');
+  DOM.diskBreakdownBar = document.getElementById('disk-breakdown-bar');
+  DOM.diskBreakdownLegend = document.getElementById('disk-breakdown-legend');
+  DOM.diskListBody = document.getElementById('disk-list-body');
+  DOM.diskLoading = document.getElementById('disk-loading');
+  DOM.diskTable = document.getElementById('disk-table');
 }
 
 function setText(element, val) {
@@ -606,6 +619,226 @@ function updatePieChart() {
   }
 }
 
+// Disk Usage Analyzer Functions
+async function showDiskAnalyzer(targetPath = '') {
+  const dialog = DOM.diskAnalyzerDialog;
+  if (dialog) dialog.showModal();
+
+  if (DOM.diskLoading) DOM.diskLoading.style.display = 'flex';
+  if (DOM.diskTable) DOM.diskTable.style.opacity = '0.3';
+
+  try {
+    const url = `/api/disk/scan?path=${encodeURIComponent(targetPath)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to scan path');
+    
+    const data = await res.json();
+    currentDiskPath = data.path;
+
+    renderDiskBreadcrumbs(data.path);
+    
+    const validItems = data.items.filter(item => item.size > 0 || item.isLibrary);
+    const totalSize = validItems.reduce((acc, item) => acc + item.size, 0);
+
+    renderDiskVisualBreakdown(validItems, totalSize);
+    renderDiskTable(validItems, totalSize);
+  } catch (error) {
+    console.error('Error scanning directory:', error);
+    if (DOM.diskListBody) {
+      DOM.diskListBody.innerHTML = `<tr><td colspan="4" align="center" class="critical-text">Error: ${error.message}</td></tr>`;
+    }
+  } finally {
+    if (DOM.diskLoading) DOM.diskLoading.style.display = 'none';
+    if (DOM.diskTable) DOM.diskTable.style.opacity = '1';
+  }
+}
+
+function renderDiskBreadcrumbs(currentPath) {
+  const container = DOM.diskBreadcrumbs;
+  if (!container) return;
+
+  const parts = currentPath.split('/').filter(Boolean);
+  let html = `<span class="breadcrumb-item" data-path="">~ (Home)</span>`;
+  
+  const homeSegmentCount = 2; // e.g., ["Users", "smessner"]
+  let currentAccumulated = '/Users/smessner';
+  
+  for (let i = homeSegmentCount; i < parts.length; i++) {
+    currentAccumulated += '/' + parts[i];
+    html += ` <span class="breadcrumb-separator">></span> <span class="breadcrumb-item" data-path="${currentAccumulated}">${parts[i]}</span>`;
+  }
+  
+  container.innerHTML = html;
+  
+  const items = container.querySelectorAll('.breadcrumb-item');
+  if (items.length > 0) {
+    const last = items[items.length - 1];
+    last.classList.add('active');
+  }
+}
+
+function renderDiskVisualBreakdown(items, totalSize) {
+  const bar = DOM.diskBreakdownBar;
+  const legend = DOM.diskBreakdownLegend;
+  if (!bar || !legend) return;
+
+  bar.innerHTML = '';
+  legend.innerHTML = '';
+
+  if (items.length === 0 || totalSize === 0) {
+    bar.style.display = 'none';
+    legend.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+  legend.style.display = 'flex';
+
+  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4'];
+  const topItems = items.slice(0, 5);
+  let accumulatedPct = 0;
+
+  topItems.forEach((item, idx) => {
+    const color = colors[idx % colors.length];
+    const pct = (item.size / totalSize) * 100;
+    accumulatedPct += pct;
+
+    if (pct > 1) {
+      const segment = document.createElement('div');
+      segment.className = 'disk-breakdown-segment';
+      segment.style.width = `${pct}%`;
+      segment.style.backgroundColor = color;
+      segment.title = `${item.name}: ${formatBytes(item.size)} (${pct.toFixed(1)}%)`;
+      bar.appendChild(segment);
+    }
+
+    const legendItem = document.createElement('div');
+    legendItem.className = 'disk-legend-item';
+    legendItem.innerHTML = `
+      <div class="disk-legend-dot" style="background-color: ${color}"></div>
+      <span class="disk-legend-name">${item.name}</span>
+      <span class="disk-legend-size">${formatBytes(item.size)} (${pct.toFixed(0)}%)</span>
+    `;
+    legend.appendChild(legendItem);
+  });
+
+  const remainingPct = 100 - accumulatedPct;
+  if (remainingPct > 1 && items.length > 5) {
+    const segment = document.createElement('div');
+    segment.className = 'disk-breakdown-segment';
+    segment.style.width = `${remainingPct}%`;
+    segment.style.backgroundColor = '#8a92b2';
+    segment.title = `Other: ${remainingPct.toFixed(1)}%`;
+    bar.appendChild(segment);
+
+    const legendItem = document.createElement('div');
+    legendItem.className = 'disk-legend-item';
+    legendItem.innerHTML = `
+      <div class="disk-legend-dot" style="background-color: #8a92b2"></div>
+      <span class="disk-legend-name">Other files</span>
+      <span class="disk-legend-size">${remainingPct.toFixed(0)}%</span>
+    `;
+    legend.appendChild(legendItem);
+  }
+}
+
+function renderDiskTable(items, totalSize) {
+  const tbody = DOM.diskListBody;
+  if (!tbody) return;
+
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" align="center" class="muted-text">This directory is empty</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = items.map((item) => {
+    const icon = item.isDirectory ? '📁' : '📄';
+    const isClickable = item.isDirectory && !item.isLibrary;
+    const nameClass = isClickable ? 'disk-item-name directory' : 'disk-item-name';
+    
+    const sizeStr = item.isLibrary ? 'System Managed' : formatBytes(item.size);
+    const pct = totalSize > 0 ? (item.size / totalSize) * 100 : 0;
+    
+    const isProtected = item.path === '/Users/smessner' || 
+                        item.name === 'Library' ||
+                        item.name === 'Desktop' ||
+                        item.name === 'Documents' ||
+                        item.name === 'Downloads' ||
+                        item.name === 'Applications' ||
+                        item.name === 'Movies' ||
+                        item.name === 'Music' ||
+                        item.name === 'Pictures';
+
+    const deleteBtnHtml = isProtected 
+      ? `<button class="btn-disk-action delete" disabled title="System folder cannot be deleted" style="opacity: 0.3; cursor: not-allowed;">Delete</button>`
+      : `<button class="btn-disk-action delete" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}">Delete</button>`;
+
+    return `
+      <tr>
+        <td>
+          <div class="${nameClass}" data-path="${escapeHtml(item.path)}">
+            <span class="disk-icon">${icon}</span>
+            <span>${escapeHtml(item.name)}</span>
+          </div>
+        </td>
+        <td align="right" style="font-family: monospace; font-weight: 600;">${sizeStr}</td>
+        <td>
+          <div class="disk-pct-bar-container" title="${pct.toFixed(1)}%">
+            <div class="disk-pct-bar-fill" style="width: ${pct}%;"></div>
+          </div>
+        </td>
+        <td align="center">
+          <div class="disk-actions-cell">
+            <button class="btn-disk-action reveal" data-path="${escapeHtml(item.path)}">Reveal</button>
+            ${deleteBtnHtml}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function revealInFinder(path) {
+  try {
+    const res = await fetch('/api/disk/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    if (!res.ok) throw new Error('Reveal failed');
+  } catch (err) {
+    alert(`Could not open path in Finder: ${err.message}`);
+  }
+}
+
+async function deleteDiskItem(path, name) {
+  const confirm1 = confirm(`WARNING: Are you sure you want to permanently delete "${name}"?\n\nThis will delete the file or directory and all its contents recursively. This action CANNOT be undone.`);
+  if (!confirm1) return;
+  
+  const confirm2 = confirm(`FINAL CONFIRMATION: Type OK to delete "${name}".\nPath: ${path}`);
+  if (!confirm2) return;
+
+  try {
+    const res = await fetch('/api/disk/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    const result = await res.json();
+    if (result.success) {
+      await showDiskAnalyzer(currentDiskPath);
+      await updateStats();
+    } else {
+      alert(`Deletion failed: ${result.error}`);
+    }
+  } catch (err) {
+    alert(`Failed to delete item: ${err.message}`);
+  }
+}
+
+function closeDiskAnalyzer() {
+  if (DOM.diskAnalyzerDialog) DOM.diskAnalyzerDialog.close();
+}
+
 async function init() {
   cacheDOM();
 
@@ -659,6 +892,61 @@ async function init() {
       
       if (!isDialogContent) {
         closeProcessInfo();
+      }
+    });
+  }
+
+  // Disk Analyzer Bindings
+  DOM.diskCard?.addEventListener('click', () => showDiskAnalyzer());
+  DOM.btnCloseDiskDialog?.addEventListener('click', closeDiskAnalyzer);
+  DOM.btnCloseDiskDialogSec?.addEventListener('click', closeDiskAnalyzer);
+  
+  DOM.diskBreadcrumbs?.addEventListener('click', (e) => {
+    const item = e.target.closest('.breadcrumb-item');
+    if (item && !item.classList.contains('active')) {
+      const p = item.getAttribute('data-path') || '';
+      showDiskAnalyzer(p);
+    }
+  });
+
+  DOM.diskListBody?.addEventListener('click', (e) => {
+    const dirItem = e.target.closest('.disk-item-name.directory');
+    if (dirItem) {
+      const p = dirItem.getAttribute('data-path');
+      showDiskAnalyzer(p);
+      return;
+    }
+
+    const revealBtn = e.target.closest('.btn-disk-action.reveal');
+    if (revealBtn) {
+      const p = revealBtn.getAttribute('data-path');
+      revealInFinder(p);
+      return;
+    }
+
+    const deleteBtn = e.target.closest('.btn-disk-action.delete');
+    if (deleteBtn && !deleteBtn.disabled) {
+      const p = deleteBtn.getAttribute('data-path');
+      const name = deleteBtn.getAttribute('data-name');
+      deleteDiskItem(p, name);
+      return;
+    }
+  });
+
+  if (DOM.diskAnalyzerDialog && !('closedBy' in HTMLDialogElement.prototype)) {
+    DOM.diskAnalyzerDialog.addEventListener('click', (event) => {
+      if (event.target !== DOM.diskAnalyzerDialog) return;
+      
+      const rect = DOM.diskAnalyzerDialog.getBoundingClientRect();
+      const isDialogContent = (
+        rect.top <= event.clientY &&
+        event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX &&
+        event.clientX <= rect.left + rect.width
+      );
+      
+      if (!isDialogContent) {
+        closeDiskAnalyzer();
       }
     });
   }
