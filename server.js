@@ -1,6 +1,13 @@
 import express from 'express';
 import path from 'path';
 
+// Natively load environment variables from .env file if present (Node.js 20.12.0+)
+try {
+  process.loadEnvFile();
+} catch (error) {
+  // .env file is optional; fall back to environment
+}
+
 // Import route modules
 import statsRouter from './routes/stats.js';
 import processesRouter from './routes/processes.js';

@@ -57,7 +57,31 @@ cd mac-hygiene-dashboard
 npm install
 ```
 
-### 2. Start the Server
+### 2. Configure AI File Analysis (Optional)
+
+ZenMac includes an AI-powered File Analyzer that evaluates files or folders in your Disk Usage Analyzer to suggest whether they are safe to delete. To enable this, you need a Gemini API Key:
+
+1. Obtain a free API key from [Google AI Studio](https://aistudio.google.com/).
+2. You can provide this key to ZenMac in one of two ways:
+
+   **Option A: Using a local `.env` file (Recommended)**
+   - Copy the environment template:
+     ```bash
+     cp .env.example .env
+     ```
+   - Open `.env` and set your key:
+     ```env
+     GEMINI_API_KEY="your_api_key_here"
+     ```
+     *(Note: `.env` is ignored by git so your key remains local and secure).*
+
+   **Option B: Exporting directly in your shell**
+   - Run:
+     ```bash
+     export GEMINI_API_KEY="your_api_key_here"
+     ```
+
+### 3. Start the Server
 
 Start the local Express server:
 
