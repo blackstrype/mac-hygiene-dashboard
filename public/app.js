@@ -11,6 +11,7 @@ let selectedCaches = new Set();
 let latestStats = null;
 let dialogTargetPid = null;
 let currentDiskPath = null;
+let currentHomePath = '';
 
 // Initialize Charts
 const cpuChart = new MiniChart('cpu-chart', 30, '#6366f1', 'percent');
@@ -641,6 +642,7 @@ async function showDiskAnalyzer(targetPath = '') {
     
     const data = await res.json();
     currentDiskPath = data.path;
+    currentHomePath = data.home || '';
 
     renderDiskBreadcrumbs(data.path);
     
@@ -664,15 +666,16 @@ function renderDiskBreadcrumbs(currentPath) {
   const container = DOM.diskBreadcrumbs;
   if (!container) return;
 
-  const parts = currentPath.split('/').filter(Boolean);
-  let html = `<span class="breadcrumb-item" data-path="">~ (Home)</span>`;
+  let html = `<span class="breadcrumb-item" data-path="${currentHomePath}">~ (Home)</span>`;
   
-  const homeSegmentCount = 2; // e.g., ["Users", "smessner"]
-  let currentAccumulated = '/Users/smessner';
-  
-  for (let i = homeSegmentCount; i < parts.length; i++) {
-    currentAccumulated += '/' + parts[i];
-    html += ` <span class="breadcrumb-separator">></span> <span class="breadcrumb-item" data-path="${currentAccumulated}">${parts[i]}</span>`;
+  if (currentPath !== currentHomePath && currentPath.startsWith(currentHomePath)) {
+    const relative = currentPath.slice(currentHomePath.length).split('/').filter(Boolean);
+    let currentAccumulated = currentHomePath;
+    
+    for (const part of relative) {
+      currentAccumulated += '/' + part;
+      html += ` <span class="breadcrumb-separator">></span> <span class="breadcrumb-item" data-path="${currentAccumulated}">${part}</span>`;
+    }
   }
   
   container.innerHTML = html;
@@ -765,7 +768,7 @@ function renderDiskTable(items, totalSize) {
     const sizeStr = item.isLibrary ? 'System Managed' : formatBytes(item.size);
     const pct = totalSize > 0 ? (item.size / totalSize) * 100 : 0;
     
-    const isProtected = item.path === '/Users/smessner' || 
+    const isProtected = item.path === currentHomePath || 
                         item.name === 'Library' ||
                         item.name === 'Desktop' ||
                         item.name === 'Documents' ||

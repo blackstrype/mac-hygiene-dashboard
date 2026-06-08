@@ -106,6 +106,7 @@ export async function scanDirectory(targetDir) {
 
   return {
     path: targetPath,
+    home: home,
     parent: targetPath === home ? null : path.dirname(targetPath),
     items: results
   };

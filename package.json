@@ -1,7 +1,7 @@
 {
   "name": "mac-hygiene-dashboard",
   "version": "1.0.0",
-  "description": "MacBook M1 system resource monitoring and hygiene management dashboard",
+  "description": "macOS system resource monitoring and hygiene management dashboard",
   "type": "module",
   "main": "server.js",
   "scripts": {

@@ -1,6 +1,6 @@
-# ZenMac: M1 Hygiene & Performance Dashboard
+# ZenMac: macOS Hygiene & Performance Dashboard
 
-ZenMac is a lightweight local dashboard and control center designed specifically for macOS M1 developers to maintain excellent hardware, memory, and storage hygiene. It helps ensure your Mac runs optimally, extends SSD lifespan (by warning on and minimizing swap usage), and helps reclaim precious storage space (especially critical if your disk is near capacity).
+ZenMac is a lightweight local dashboard and control center designed specifically for macOS developers to maintain excellent hardware, memory, and storage hygiene. It works on any Mac (Intel and Apple Silicon alike). It helps ensure your Mac runs optimally, extends SSD lifespan (by warning on and minimizing swap usage), and helps reclaim precious storage space (especially critical if your disk is near capacity).
 
 ---
 
@@ -14,7 +14,7 @@ ZenMac is a lightweight local dashboard and control center designed specifically
 2. **Real-time Hardware Monitors**:
    - **CPU Load & load averages**: Highlighting total core usage.
    - **RAM Breakdown**: Real-time display of active, wired, compressed, and free RAM.
-   - **Swap Usage**: Monitored closely to reduce excessive SSD write cycles (a key wear factor for M1 Macs).
+   - **Swap Usage**: Monitored closely to reduce excessive SSD write cycles (a key wear factor for Mac SSDs).
    - **Battery Health**: Tracks Maximum Capacity %, battery cycle counts, current charge, and health condition.
    - **Disk Storage Alert**: Triggers a persistent critical alert if storage is near capacity (e.g. >90%), which limits swap operations.
 
@@ -39,7 +39,7 @@ ZenMac is a lightweight local dashboard and control center designed specifically
 
 ## System Requirements
 
-- macOS (optimized for Apple Silicon M1)
+- macOS (runs on any Apple Silicon or Intel Mac)
 - Node.js (v16+)
 - Google Drive or Microsoft OneDrive (optional, to utilize preset toggling)
 
