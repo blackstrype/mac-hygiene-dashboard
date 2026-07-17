@@ -87,6 +87,12 @@ function cacheDOM() {
   DOM.infoSafenessDesc = document.getElementById('info-safeness-desc');
   DOM.btnDialogTerminate = document.getElementById('btn-dialog-terminate');
   DOM.processInfoDialog = document.getElementById('process-info-dialog');
+  DOM.btnDialogDiagnose = document.getElementById('btn-dialog-diagnose');
+  DOM.diagnoseLoading = document.getElementById('diagnose-loading');
+  DOM.diagnoseResultsCard = document.getElementById('diagnose-results-card');
+  DOM.diagnoseActivity = document.getElementById('diagnose-activity');
+  DOM.diagnoseExplanation = document.getElementById('diagnose-explanation');
+  DOM.diagnoseRecommendation = document.getElementById('diagnose-recommendation');
   
   DOM.pieLegend = document.getElementById('pie-legend');
 
@@ -497,6 +503,14 @@ async function showProcessInfo(name, comm, pid) {
   setText(DOM.infoProcRisk, 'Loading...');
   setText(DOM.infoProcDesc, 'Fetching details...');
   setText(DOM.infoSafenessPct, '0%');
+
+  if (DOM.diagnoseResultsCard) DOM.diagnoseResultsCard.style.display = 'none';
+  if (DOM.diagnoseLoading) DOM.diagnoseLoading.style.display = 'none';
+  if (DOM.btnDialogDiagnose) {
+    DOM.btnDialogDiagnose.style.display = 'inline-block';
+    DOM.btnDialogDiagnose.disabled = false;
+    DOM.btnDialogDiagnose.innerText = '🤖 Run AI CPU Diagnostics';
+  }
   
   const ring = DOM.infoSafenessRing;
   if (ring) {
@@ -578,6 +592,55 @@ async function terminateFromDialog() {
     }
   } catch (error) {
     alert(`Failed to send kill signal: ${error.message}`);
+  }
+}
+
+async function runCpuDiagnosis() {
+  if (!dialogTargetPid) return;
+  const pid = dialogTargetPid;
+  const name = DOM.infoProcName?.innerText || '';
+
+  if (DOM.btnDialogDiagnose) DOM.btnDialogDiagnose.disabled = true;
+  if (DOM.diagnoseLoading) DOM.diagnoseLoading.style.display = 'flex';
+  if (DOM.diagnoseResultsCard) DOM.diagnoseResultsCard.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/processes/diagnose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pid, name })
+    });
+
+    if (res.status === 412) {
+      const data = await res.json();
+      alert(`AI key missing:\n\n${data.instructions}`);
+      if (DOM.diagnoseLoading) DOM.diagnoseLoading.style.display = 'none';
+      if (DOM.btnDialogDiagnose) DOM.btnDialogDiagnose.disabled = false;
+      return;
+    }
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to complete diagnostics');
+    }
+
+    const data = await res.json();
+
+    setText(DOM.diagnoseActivity, data.activity || 'Unknown activity');
+    setText(DOM.diagnoseExplanation, data.explanation || 'No stack trace findings available.');
+    
+    const recText = data.recommendation || 'No recommendations.';
+    if (DOM.diagnoseRecommendation) {
+      DOM.diagnoseRecommendation.innerHTML = recText.replace(/\n/g, '<br>');
+    }
+
+    if (DOM.diagnoseResultsCard) DOM.diagnoseResultsCard.style.display = 'block';
+  } catch (error) {
+    console.error('Error running CPU diagnosis:', error);
+    alert(`Could not perform CPU diagnosis: ${error.message}`);
+  } finally {
+    if (DOM.diagnoseLoading) DOM.diagnoseLoading.style.display = 'none';
+    if (DOM.btnDialogDiagnose) DOM.btnDialogDiagnose.disabled = false;
   }
 }
 
@@ -935,6 +998,7 @@ async function init() {
   document.querySelectorAll('.btn-close-dialog').forEach(btn => btn.addEventListener('click', closeProcessInfo));
   document.querySelector('.btn-close-dialog-sec')?.addEventListener('click', closeProcessInfo);
   DOM.btnDialogTerminate?.addEventListener('click', terminateFromDialog);
+  DOM.btnDialogDiagnose?.addEventListener('click', runCpuDiagnosis);
   
   DOM.cacheListBody?.addEventListener('change', (e) => {
     const cb = e.target.closest('.cache-checkbox');
