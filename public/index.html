@@ -358,6 +358,20 @@
         <span class="breadcrumb-item active">Home</span>
       </div>
 
+      <div class="storage-tools-bar">
+        <span class="storage-tools-label">Storage tools for this folder</span>
+        <div class="storage-tools-actions">
+          <label class="storage-tools-option" for="dup-min-size">Min file size</label>
+          <select id="dup-min-size" class="storage-select">
+            <option value="102400">100 KB</option>
+            <option value="1048576" selected>1 MB</option>
+            <option value="10485760">10 MB</option>
+            <option value="104857600">100 MB</option>
+          </select>
+          <button class="btn primary btn-compact" id="btn-find-duplicates">🔍 Find Duplicates</button>
+        </div>
+      </div>
+
       <div class="disk-visual-breakdown">
         <div class="disk-breakdown-bar" id="disk-breakdown-bar"></div>
         <div class="disk-breakdown-legend" id="disk-breakdown-legend"></div>
@@ -374,7 +388,7 @@
               <th>Name</th>
               <th width="100" align="right">Size</th>
               <th width="160">Allocation</th>
-              <th width="120" align="center">Actions</th>
+              <th width="190" align="center">Actions</th>
             </tr>
           </thead>
           <tbody id="disk-list-body">
@@ -433,6 +447,53 @@
     </div>
     <div class="dialog-footer">
       <button class="btn secondary" id="btn-close-ai-dialog-sec">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Cloud Offload Dialog -->
+  <dialog id="offload-dialog" class="dialog-card" closedby="any" aria-labelledby="offload-dialog-title">
+    <div class="dialog-header">
+      <h2 id="offload-dialog-title">Offload to Cloud</h2>
+      <button class="btn-close-disk-dialog" id="btn-close-offload-dialog">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="info-group">
+        <div class="info-label">Item</div>
+        <div class="info-value" id="offload-item-name" style="color: var(--color-text); font-family: monospace;"></div>
+      </div>
+      <p class="info-desc">
+        The item is moved into a <strong>ZenMac Offload</strong> folder inside your cloud drive, keeping its original
+        folder structure. Your sync app uploads it; ZenMac never sees your cloud password.
+      </p>
+      <div class="offload-destinations" id="offload-destinations"></div>
+      <p class="info-desc storage-status" id="offload-status" role="status"></p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn secondary" id="btn-close-offload-dialog-sec">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Duplicate Finder Dialog -->
+  <dialog id="duplicates-dialog" class="dialog-card large-dialog" closedby="any" aria-labelledby="duplicates-dialog-title">
+    <div class="dialog-header">
+      <h2 id="duplicates-dialog-title">Duplicate Files</h2>
+      <button class="btn-close-disk-dialog" id="btn-close-duplicates-dialog">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="disk-loading" id="duplicates-loading" style="display: none;">
+        <div class="spinner"></div>
+        <p style="margin-top: 10px; color: var(--color-text-muted);">Comparing file contents… large folders can take a minute.</p>
+      </div>
+      <p class="info-desc" id="duplicates-summary"></p>
+      <div class="duplicates-list" id="duplicates-list"></div>
+    </div>
+    <div class="dialog-footer duplicates-footer">
+      <div class="selected-summary" id="duplicates-selected-summary">Selected: 0 B</div>
+      <div class="duplicates-footer-actions">
+        <button class="btn secondary" id="btn-duplicates-autoselect">Select All But Oldest</button>
+        <button class="btn danger" id="btn-duplicates-remove" disabled>Move Selected to Trash</button>
+        <button class="btn secondary" id="btn-close-duplicates-dialog-sec">Close</button>
+      </div>
     </div>
   </dialog>
 

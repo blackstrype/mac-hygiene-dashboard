@@ -13,7 +13,7 @@
     "@google/generative-ai": "^0.13.0"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.15.0"
   },
   "author": "Antigravity",
   "license": "MIT"

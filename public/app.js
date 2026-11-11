@@ -12,6 +12,8 @@ let latestStats = null;
 let dialogTargetPid = null;
 let currentDiskPath = null;
 let currentHomePath = '';
+let offloadTarget = null;
+let duplicateGroups = [];
 
 // Initialize Charts
 const cpuChart = new MiniChart('cpu-chart', 30, '#6366f1', 'percent');
@@ -106,6 +108,21 @@ function cacheDOM() {
   DOM.diskListBody = document.getElementById('disk-list-body');
   DOM.diskLoading = document.getElementById('disk-loading');
   DOM.diskTable = document.getElementById('disk-table');
+
+  // Storage Tools DOM items (cloud offload & duplicate finder)
+  DOM.btnFindDuplicates = document.getElementById('btn-find-duplicates');
+  DOM.dupMinSize = document.getElementById('dup-min-size');
+  DOM.offloadDialog = document.getElementById('offload-dialog');
+  DOM.offloadItemName = document.getElementById('offload-item-name');
+  DOM.offloadDestinations = document.getElementById('offload-destinations');
+  DOM.offloadStatus = document.getElementById('offload-status');
+  DOM.duplicatesDialog = document.getElementById('duplicates-dialog');
+  DOM.duplicatesLoading = document.getElementById('duplicates-loading');
+  DOM.duplicatesSummary = document.getElementById('duplicates-summary');
+  DOM.duplicatesList = document.getElementById('duplicates-list');
+  DOM.duplicatesSelectedSummary = document.getElementById('duplicates-selected-summary');
+  DOM.btnDuplicatesAutoselect = document.getElementById('btn-duplicates-autoselect');
+  DOM.btnDuplicatesRemove = document.getElementById('btn-duplicates-remove');
 
   // AI Analysis DOM items
   DOM.aiAnalysisDialog = document.getElementById('ai-analysis-dialog');
@@ -845,6 +862,11 @@ function renderDiskTable(items, totalSize) {
       ? `<button class="btn-disk-action delete" disabled title="System folder cannot be deleted" style="opacity: 0.3; cursor: not-allowed;">Delete</button>`
       : `<button class="btn-disk-action delete" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}">Delete</button>`;
 
+    // Cloud offload is offered for ordinary user content only (the server enforces the same rule)
+    const offloadBtnHtml = isProtected || item.name.startsWith('.')
+      ? ''
+      : `<button class="btn-disk-action offload" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}" title="Move to Google Drive / OneDrive">☁️ Offload</button>`;
+
     return `
       <tr>
         <td>
@@ -863,6 +885,7 @@ function renderDiskTable(items, totalSize) {
           <div class="disk-actions-cell">
             <button class="btn-disk-action ai" data-path="${escapeHtml(item.path)}" data-name="${escapeHtml(item.name)}">🤖 AI</button>
             <button class="btn-disk-action reveal" data-path="${escapeHtml(item.path)}">Reveal</button>
+            ${offloadBtnHtml}
             ${deleteBtnHtml}
           </div>
         </td>
@@ -980,6 +1003,289 @@ function closeAiAnalysis() {
   if (DOM.aiAnalysisDialog) DOM.aiAnalysisDialog.close();
 }
 
+// Storage Tools: shared helpers
+async function postJson(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+function displayPath(p) {
+  if (!currentHomePath) return p;
+  if (p === currentHomePath) return '~';
+  return p.startsWith(currentHomePath + '/') ? '~' + p.slice(currentHomePath.length) : p;
+}
+
+function setStorageStatus(el, text, kind = '') {
+  if (!el) return;
+  el.textContent = text;
+  el.className = `info-desc storage-status ${kind}`.trim();
+}
+
+// Cloud Offload Functions
+async function showOffloadDialog(targetPath, name) {
+  offloadTarget = { path: targetPath, name };
+  setText(DOM.offloadItemName, displayPath(targetPath));
+  setStorageStatus(DOM.offloadStatus, 'Looking for cloud drives...');
+  DOM.offloadDestinations.replaceChildren();
+  DOM.offloadDialog?.showModal();
+
+  try {
+    const res = await fetch('/api/storage/destinations');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not list cloud drives');
+
+    if (data.destinations.length === 0) {
+      setStorageStatus(DOM.offloadStatus, 'No cloud drive found. Install and sign in to Google Drive for desktop or OneDrive, then try again.', 'error');
+      return;
+    }
+
+    for (const dest of data.destinations) {
+      const btn = document.createElement('button');
+      btn.className = 'offload-destination-btn';
+      btn.dataset.destination = dest.id;
+      btn.dataset.label = dest.label;
+      btn.textContent = `☁️  Move to ${dest.label}`;
+      DOM.offloadDestinations.appendChild(btn);
+    }
+    setStorageStatus(DOM.offloadStatus, '');
+  } catch (err) {
+    setStorageStatus(DOM.offloadStatus, err.message, 'error');
+  }
+}
+
+async function runOffload(destinationId, label) {
+  if (!offloadTarget) return;
+  const { path, name } = offloadTarget;
+
+  if (!confirm(`Move "${name}" to ${label}?\n\nIt will leave this location and appear under "ZenMac Offload" in your cloud drive.`)) {
+    return;
+  }
+
+  const buttons = DOM.offloadDestinations.querySelectorAll('button');
+  buttons.forEach(btn => { btn.disabled = true; });
+  setStorageStatus(DOM.offloadStatus, 'Moving...');
+
+  try {
+    const result = await postJson('/api/storage/offload', { path, destination: destinationId });
+    offloadTarget = null;
+    DOM.offloadDestinations.replaceChildren();
+    setStorageStatus(
+      DOM.offloadStatus,
+      `Moved to ${displayPath(result.movedTo)}. Disk space is released once ${result.destination} finishes uploading. Keep the sync app running (leave Zen Coding / Cinema mode).`,
+      'success'
+    );
+    await showDiskAnalyzer(currentDiskPath);
+    await updateStats();
+  } catch (err) {
+    setStorageStatus(DOM.offloadStatus, `Offload failed: ${err.message}`, 'error');
+    buttons.forEach(btn => { btn.disabled = false; });
+  }
+}
+
+function closeOffloadDialog() {
+  DOM.offloadDialog?.close();
+}
+
+// Duplicate Finder Functions
+async function showDuplicates() {
+  duplicateGroups = [];
+  DOM.duplicatesList.replaceChildren();
+  setText(DOM.duplicatesSummary, '');
+  updateDuplicateSelection();
+  DOM.duplicatesDialog?.showModal();
+  DOM.duplicatesLoading.style.display = 'flex';
+
+  try {
+    const minSize = parseInt(DOM.dupMinSize?.value, 10) || 1048576;
+    const data = await postJson('/api/storage/duplicates/scan', { path: currentDiskPath, minSize });
+    duplicateGroups = data.groups;
+    renderDuplicates(data);
+  } catch (err) {
+    setText(DOM.duplicatesSummary, `Scan failed: ${err.message}`);
+  } finally {
+    DOM.duplicatesLoading.style.display = 'none';
+  }
+}
+
+function renderDuplicates(data) {
+  const where = displayPath(data.root);
+  if (data.groups.length === 0) {
+    setText(DOM.duplicatesSummary, `No duplicate files of ${formatBytes(data.minSize, 0)} or larger found in ${where}.`);
+  } else {
+    let summary = `Found ${data.totalGroups} set${data.totalGroups === 1 ? '' : 's'} of identical files in ${where}. Up to ${formatBytes(data.reclaimable)} can be reclaimed.`;
+    if (data.groups.length < data.totalGroups) summary += ` Showing the ${data.groups.length} largest.`;
+    if (data.truncated) summary += ' The scan hit its time limit, so results are partial. Scan a subfolder for full coverage.';
+    summary += ' Tick the copies to remove; at least one copy of every file is always kept.';
+    setText(DOM.duplicatesSummary, summary);
+  }
+
+  const fragment = document.createDocumentFragment();
+  data.groups.forEach((group, groupIndex) => {
+    const box = document.createElement('div');
+    box.className = 'duplicate-group';
+
+    const header = document.createElement('div');
+    header.className = 'duplicate-group-header';
+    const title = document.createElement('span');
+    const strong = document.createElement('strong');
+    strong.textContent = `${group.files.length} copies`;
+    title.append(strong, ` · ${formatBytes(group.size)} each`);
+    const saving = document.createElement('span');
+    saving.textContent = `saves up to ${formatBytes(group.reclaimable)}`;
+    header.append(title, saving);
+    box.appendChild(header);
+
+    group.files.forEach((file, fileIndex) => {
+      const row = document.createElement('div');
+      row.className = 'duplicate-file';
+
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'duplicate-checkbox';
+      cb.dataset.group = groupIndex;
+      cb.dataset.file = fileIndex;
+      const pathEl = document.createElement('span');
+      pathEl.className = 'duplicate-file-path';
+      pathEl.textContent = displayPath(file.path);
+      label.append(cb, pathEl);
+
+      const meta = document.createElement('span');
+      meta.className = 'duplicate-file-meta';
+      meta.textContent = new Date(file.mtime).toLocaleDateString();
+
+      const reveal = document.createElement('button');
+      reveal.className = 'btn-disk-action reveal';
+      reveal.dataset.path = file.path.slice(0, file.path.lastIndexOf('/'));
+      reveal.textContent = 'Reveal';
+
+      row.append(label, meta, reveal);
+      box.appendChild(row);
+    });
+
+    fragment.appendChild(box);
+  });
+  DOM.duplicatesList.replaceChildren(fragment);
+  updateDuplicateSelection();
+}
+
+function groupCheckboxes(groupIndex) {
+  return [...DOM.duplicatesList.querySelectorAll(`.duplicate-checkbox[data-group="${groupIndex}"]`)];
+}
+
+// Never allow every copy in a set to be ticked
+function onDuplicateCheckboxChange(cb) {
+  const boxes = groupCheckboxes(cb.dataset.group);
+  if (boxes.every(b => b.checked)) {
+    cb.checked = false;
+    alert('At least one copy must be kept. Untick another copy first if you want to remove this one.');
+  }
+  updateDuplicateSelection();
+}
+
+function autoSelectDuplicates() {
+  duplicateGroups.forEach((group, groupIndex) => {
+    // Files are listed oldest first: keep the original, mark the later copies
+    groupCheckboxes(groupIndex).forEach((cb, i) => { cb.checked = i > 0; });
+  });
+  updateDuplicateSelection();
+}
+
+function updateDuplicateSelection() {
+  let bytes = 0;
+  let count = 0;
+  DOM.duplicatesList?.querySelectorAll('.duplicate-checkbox').forEach(cb => {
+    cb.closest('.duplicate-file').classList.toggle('marked', cb.checked);
+    if (cb.checked) {
+      count++;
+      bytes += duplicateGroups[cb.dataset.group].size;
+    }
+  });
+  setText(DOM.duplicatesSelectedSummary, `Selected: ${count} file${count === 1 ? '' : 's'}, ${formatBytes(bytes)}`);
+  if (DOM.btnDuplicatesRemove) DOM.btnDuplicatesRemove.disabled = count === 0;
+  if (DOM.btnDuplicatesAutoselect) DOM.btnDuplicatesAutoselect.disabled = duplicateGroups.length === 0;
+}
+
+async function removeSelectedDuplicates() {
+  const payload = [];
+  let count = 0;
+  duplicateGroups.forEach((group, groupIndex) => {
+    const boxes = groupCheckboxes(groupIndex);
+    const remove = group.files.filter((_, i) => boxes[i]?.checked).map(f => f.path);
+    const keep = group.files.find((_, i) => !boxes[i]?.checked);
+    if (remove.length > 0 && keep) {
+      payload.push({ keep: keep.path, remove });
+      count += remove.length;
+    }
+  });
+  if (count === 0) return;
+
+  if (!confirm(`Move ${count} duplicate file${count === 1 ? '' : 's'} to the Trash?\n\nOne identical copy of each file stays where it is. Space is reclaimed when you empty the Trash.`)) {
+    return;
+  }
+
+  DOM.btnDuplicatesRemove.disabled = true;
+  DOM.duplicatesLoading.style.display = 'flex';
+  try {
+    const result = await postJson('/api/storage/duplicates/remove', { groups: payload });
+    let message = `Moved ${result.removed.length} file${result.removed.length === 1 ? '' : 's'} (${formatBytes(result.freed)}) to the Trash. Empty the Trash to reclaim the space.`;
+    if (result.errors.length > 0) {
+      message += `\n\n${result.errors.length} file(s) were left untouched:\n` +
+        result.errors.slice(0, 8).map(e => `• ${displayPath(e.path)}: ${e.error}`).join('\n');
+    }
+    alert(message);
+
+    // Drop removed files from the list instead of re-hashing everything
+    const gone = new Set(result.removed);
+    duplicateGroups = duplicateGroups
+      .map(g => {
+        const files = g.files.filter(f => !gone.has(f.path));
+        return { ...g, files, reclaimable: g.size * (files.length - 1) };
+      })
+      .filter(g => g.files.length > 1);
+    DOM.duplicatesList.replaceChildren();
+    if (duplicateGroups.length > 0) {
+      renderDuplicates({
+        root: currentDiskPath,
+        groups: duplicateGroups,
+        totalGroups: duplicateGroups.length,
+        reclaimable: duplicateGroups.reduce((sum, g) => sum + g.reclaimable, 0)
+      });
+    } else {
+      setText(DOM.duplicatesSummary, 'No duplicates left in this list.');
+      updateDuplicateSelection();
+    }
+    await showDiskAnalyzer(currentDiskPath);
+  } catch (err) {
+    alert(`Could not remove duplicates: ${err.message}`);
+    updateDuplicateSelection();
+  } finally {
+    DOM.duplicatesLoading.style.display = 'none';
+  }
+}
+
+function closeDuplicates() {
+  DOM.duplicatesDialog?.close();
+}
+
+// Closes a dialog on backdrop click in browsers without <dialog closedby>
+function bindBackdropClose(dialog) {
+  if (!dialog || 'closedBy' in HTMLDialogElement.prototype) return;
+  dialog.addEventListener('click', (event) => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    const inside = rect.top <= event.clientY && event.clientY <= rect.bottom &&
+                   rect.left <= event.clientX && event.clientX <= rect.right;
+    if (!inside) dialog.close();
+  });
+}
+
 async function init() {
   cacheDOM();
 
@@ -1066,6 +1372,12 @@ async function init() {
       return;
     }
 
+    const offloadBtn = e.target.closest('.btn-disk-action.offload');
+    if (offloadBtn) {
+      showOffloadDialog(offloadBtn.getAttribute('data-path'), offloadBtn.getAttribute('data-name'));
+      return;
+    }
+
     const deleteBtn = e.target.closest('.btn-disk-action.delete');
     if (deleteBtn && !deleteBtn.disabled) {
       const p = deleteBtn.getAttribute('data-path');
@@ -1100,6 +1412,33 @@ async function init() {
       }
     });
   }
+
+  // Storage Tools Bindings
+  DOM.btnFindDuplicates?.addEventListener('click', showDuplicates);
+  document.getElementById('btn-close-offload-dialog')?.addEventListener('click', closeOffloadDialog);
+  document.getElementById('btn-close-offload-dialog-sec')?.addEventListener('click', closeOffloadDialog);
+  document.getElementById('btn-close-duplicates-dialog')?.addEventListener('click', closeDuplicates);
+  document.getElementById('btn-close-duplicates-dialog-sec')?.addEventListener('click', closeDuplicates);
+  DOM.btnDuplicatesAutoselect?.addEventListener('click', autoSelectDuplicates);
+  DOM.btnDuplicatesRemove?.addEventListener('click', removeSelectedDuplicates);
+
+  DOM.offloadDestinations?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.offload-destination-btn');
+    if (btn && !btn.disabled) runOffload(btn.dataset.destination, btn.dataset.label);
+  });
+
+  DOM.duplicatesList?.addEventListener('change', (e) => {
+    const cb = e.target.closest('.duplicate-checkbox');
+    if (cb) onDuplicateCheckboxChange(cb);
+  });
+
+  DOM.duplicatesList?.addEventListener('click', (e) => {
+    const revealBtn = e.target.closest('.btn-disk-action.reveal');
+    if (revealBtn) revealInFinder(revealBtn.dataset.path);
+  });
+
+  bindBackdropClose(DOM.offloadDialog);
+  bindBackdropClose(DOM.duplicatesDialog);
 
   // AI Dialog Close Bindings
   DOM.btnCloseAiDialog?.addEventListener('click', closeAiAnalysis);

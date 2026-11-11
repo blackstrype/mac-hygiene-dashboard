@@ -1291,3 +1291,196 @@ body {
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
 }
 
+
+/* Storage tools: cloud offload & duplicate finder */
+.storage-tools-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.storage-tools-label,
+.storage-tools-option {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.storage-tools-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.storage-select {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+
+.storage-select option {
+  background: #161825;
+}
+
+.btn.btn-compact {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-disk-action.offload {
+  color: var(--color-info);
+  background: rgba(6, 182, 212, 0.06);
+  border-color: rgba(6, 182, 212, 0.2);
+  white-space: nowrap;
+}
+
+.btn-disk-action.offload:hover {
+  background: var(--color-info);
+  color: white;
+  border-color: var(--color-info);
+}
+
+.offload-destinations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 1rem;
+}
+
+.offload-destination-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.offload-destination-btn:hover:not(:disabled) {
+  border-color: var(--border-color-active);
+  background: var(--accent-glow);
+}
+
+.offload-destination-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.storage-status {
+  margin-top: 1rem;
+  min-height: 1.2em;
+  overflow-wrap: anywhere;
+}
+
+.storage-status.success {
+  color: var(--color-success);
+}
+
+.storage-status.error {
+  color: var(--color-danger);
+}
+
+.duplicates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 1rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.duplicate-group {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 12px;
+}
+
+.duplicate-group-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.duplicate-group-header strong {
+  color: var(--color-text);
+}
+
+.duplicate-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 0.85rem;
+}
+
+.duplicate-file label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.duplicate-file-path {
+  font-family: monospace;
+  overflow-wrap: anywhere;
+}
+
+.duplicate-file-meta {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.duplicate-file.marked .duplicate-file-path {
+  color: var(--color-danger);
+  text-decoration: line-through;
+}
+
+.duplicate-keep-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.duplicates-footer {
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.duplicates-footer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

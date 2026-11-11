@@ -35,12 +35,17 @@ ZenMac is a lightweight local dashboard and control center designed specifically
    - Summarizes resource usage by categories: Cloud Sync, Browsers & Streaming, IDEs & Dev Tools.
    - Let's you force-terminate (kill) unresponsive or heavy processes directly from the browser.
 
+5. **Storage Tools** (inside the Disk Usage Analyzer, opened by clicking the Disk Storage card):
+   - **Offload to Cloud**: Moves a file or folder into a `ZenMac Offload` folder in your Google Drive or OneDrive, mirroring its original location (e.g. `~/Documents/old/a.zip` → `ZenMac Offload/Documents/old/a.zip`). ZenMac hands the item to the sync app you are already signed in to (it uses the local folders under `~/Library/CloudStorage`), so it never asks for or stores cloud credentials. Local space is released once the sync app has uploaded the item.
+   - **Find Duplicates**: Scans the folder you are viewing for byte-identical files (size, then SHA-256). Tick the copies you don't need and they are moved to the Trash; one copy of every file is always kept, and each file is re-verified against the kept copy right before it is removed.
+   - Safety rules: only ordinary content in your home folder is touched (never `~/Library`, hidden files, primary folders as a whole, or symlinks), nothing is ever overwritten, and these endpoints only answer requests from the Mac itself.
+
 ---
 
 ## System Requirements
 
 - macOS (runs on any Apple Silicon or Intel Mac)
-- Node.js (v16+)
+- Node.js (v18.15+)
 - Google Drive or Microsoft OneDrive (optional, to utilize preset toggling)
 
 ---

@@ -14,6 +14,7 @@ import processesRouter from './routes/processes.js';
 import focusRouter from './routes/focus.js';
 import cleanRouter from './routes/clean.js';
 import diskRouter from './routes/disk.js';
+import storageRouter from './routes/storage.js';
 
 const app = express();
 const PORT = 3000;
@@ -29,6 +30,7 @@ app.use('/api', processesRouter);
 app.use('/api', focusRouter);
 app.use('/api', cleanRouter);
 app.use('/api', diskRouter);
+app.use('/api', storageRouter);
 
 // Start listening
 app.listen(PORT, () => {
